@@ -50,6 +50,8 @@ make prod
 
 **Bind-mounted directories shared by two containers running as different users can end up with mismatched ownership** — e.g. `frontend/` is written by both `app` (uid 1000, builds `frontend/dist` in its entrypoint) and `frontend-site` (root by default, `make site`'s dev server). If one writes there first, the other can hit `EACCES` on its own `npm install`. Fix is a one-off `chown`, not a permanent `user:` pin baked into compose — check who actually needs to write there before reaching for that.
 
+**`app`/`scheduler`'s `$HOME` is `/var/www`** (the `www-data` user's home dir, set in the Dockerfile) — which is the bind-mounted project root. Any tool that defaults to writing into `$HOME` (bash's own `.bash_history` on an interactive `make bash` exit, most obviously) leaks a stray file straight into the repo. `docker-compose.yml` sets `HISTFILE=/tmp/.bash_history` on both services specifically to keep bash's history inside the container instead. If a *new* `$HOME`-based leak turns up (a different tool's cache/history file), redirect that tool's own env var the same way rather than gitignoring the leaked file — the goal is that the file never gets created here at all, not that git ignores it.
+
 ## Environment
 
 Root `.env` controls Docker (ports, MySQL credentials). Backend has its own `backend/.env` for Laravel (`DB_HOST=db`, `REDIS_HOST=redis`).
@@ -59,6 +61,10 @@ Root `.env` controls Docker (ports, MySQL credentials). Backend has its own `bac
 Redis pub/sub is meant to connect backend to the websocket server: PHP publishes to a Redis channel → `websocket/server.js` subscribes and broadcasts to connected clients over `ws`.
 
 **Not wired up on the backend side yet.** `websocket/channels/index.js` already handles subscribe/unsubscribe/relay against Redis — a backend feature that needs live updates just needs to `Redis::publish(channel, payload)` (or use Laravel's broadcasting layer) to the same channel name a client has subscribed to. No private-channel auth exists yet (no ticket/ownership check) — every channel is effectively public right now. Design that before exposing anything user-specific over a channel.
+
+## Dependencies
+
+When adding several new npm packages in one sitting, install them in **one** `npm install pkgA pkgB pkgC` call, not one `npm install` per package. Installing one at a time leaves the lockfile poorly deduped (nested duplicate entries instead of hoisted ones) — confirmed by comparison: 155→184 packages after a batch of additions should move a lockfile by roughly a hundred lines, not double it. If a lockfile ever looks abnormally large, `rm -rf node_modules package-lock.json && npm install` (as the same uid that normally owns the directory) resolves it.
 
 ## Code Style Rules — ALWAYS follow these
 

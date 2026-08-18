@@ -4,31 +4,37 @@ Frontend-specific conventions for `frontend/` (Vue 3 + TypeScript + Vite public 
 
 ## Current state
 
-Minimal scaffold: `App.vue`, `router/index.ts` (one `home` route), `views/Home.vue`, `assets/scss/variables.scss`. Only `axios`, `pinia`, `vue`, `vue-router` are installed (`package.json`) — no form-validation library, no toast/notification library, no component kit. Don't reference a package that isn't in `package.json`.
+Styling is Tailwind CSS 4 (`@tailwindcss/vite`, entry at `src/assets/css/main.css`) — new components use Tailwind utility classes directly in the template, not SCSS. The old `assets/scss/variables.scss` design-token setup still exists for legacy pieces but isn't the convention for new work. Installed beyond the original `axios`/`pinia`/`vue`/`vue-router`: `vee-validate` + `yup` (forms), `@tiptap/*` (rich text editing — see below), `vue-advanced-cropper` (image crop). Don't reference a package that isn't in `package.json`.
 
-## Structure to grow into
+The one real feature built so far is the comment form (`components/ui/comments/`) — see its structure below as the working example of the conventions in this file.
+
+## Structure
 
 ```
 src/
-  assets/scss/       ← global styles only
-    variables.scss   ← design tokens, auto-injected into every component (see vite.config.ts's additionalData)
+  assets/css/main.css   ← Tailwind entry (@import "tailwindcss";)
   components/
-    layout/           ← AppHeader, AppFooter, Layout
-    ui/base/          ← generic reusable pieces (BaseButton, BaseInput, ...)
-    ui/<domain>/       ← feature-specific but still reusable components
-  composables/        ← shared reactive logic extracted out of components
-  views/              ← route-level components — assemble components only, no UI logic of their own
-  stores/              ← Pinia stores — see rule below
-  types/               ← shared TS interfaces, grouped by domain file, not per-component
-  router/index.ts      ← Vue Router, history mode
-public/                ← static assets served as-is (Vite can't resolve dynamic src/assets paths, so anything referenced from JS data goes here)
+    ui/base/             ← generic reusable pieces (BaseButton, BaseInput, ...)
+    ui/<domain>/          ← feature-specific components, e.g. ui/comments/
+  stores/                 ← Pinia stores — see rule below
+  views/                  ← route-level components — assemble components only, no UI logic of their own
+  router/index.ts         ← Vue Router, history mode
+public/                   ← static assets served as-is (Vite can't resolve dynamic src/assets paths, so anything referenced from JS data goes here)
 ```
 
 Vite alias `@` → `src/`, `@public` → `public/` (`vite.config.ts`).
 
-## SCSS
+**A self-contained feature with several moving parts gets its own subfolder, not one giant component.** `ui/comments/editor/` holds `CommentEditor.vue` (toolbar + TipTap instance) and `LinkPopover.vue` (the link insert/edit modal) as siblings; `ui/comments/imageUpload/` holds `ImageUpload.vue` and `CropModal.vue` the same way. The split point is usually a modal/popover — pull it into its own component exposing an `open(...)` method via `defineExpose`, called from the parent through a `ref`, emitting results back up (`@cropped`, `@cancelled`) rather than the parent reaching into the child's internal state.
 
-`vite.config.ts`'s `additionalData` auto-injects `@use "@/assets/scss/variables" as *;` into every component — **never redeclare a variable from `variables.scss` inside a component's `<style>`**, it's already in scope. Component styles: `<style lang="scss" scoped>`.
+## Forms — vee-validate + yup
+
+Use `useForm()` (not the `<Form>` component) when the parent needs live reactive access to field values — e.g. to mirror a field into a Pinia store as the user types (see `stores/author.ts` + `CommentForm.vue`: a `watch(() => values.user_name, ...)` syncs into the store on every change, and the store's own `watch` persists to `localStorage`). The `<Form>` component only gives child components access to the form context, not the parent's own `<script setup>`.
+
+Toolbar-style buttons (bold/italic/link/...) should be a data-driven array (`{ key, title, active, run }`) rendered with `v-for`, not one hand-written `<button>` per action — see `CommentEditor.vue`'s `toolbar_buttons` computed.
+
+## Rich text editing — use TipTap, not a hand-rolled contenteditable
+
+`@tiptap/vue-3` (+ `starter-kit`, `pm`, and per-mark extensions) is the answer for anything beyond a plain `<input>`/`<textarea>`. A hand-rolled `contenteditable` + native `Selection`/`Range` API was tried first for the comment editor and hit a wall of real bugs (toolbar buttons losing the Range on click, ambiguous caret placement at empty-element boundaries, links "growing" when typing at their edge) that TipTap's ProseMirror foundation already solves. If a mark needs to render as a specific tag TipTap doesn't default to (e.g. `<i>` instead of `<em>`), extend the base extension and override `parseHTML`/`renderHTML` rather than reaching for something else. `insertContent()` given a plain string is parsed as HTML — pass `{ type: 'text', text }` explicitly when the content must stay 100% literal (e.g. a code block whose contents might itself contain `<i>`-looking text).
 
 ## Component rules
 

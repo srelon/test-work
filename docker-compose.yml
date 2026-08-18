@@ -19,6 +19,8 @@ services:
     container_name: dzencode_app
     user: "1000:1000"
     entrypoint: ["sh", "/var/www/_docker/app/entrypoint.sh"]
+    environment:
+      - HISTFILE=/tmp/.bash_history
     volumes:
       - ./:/var/www
     depends_on:
@@ -33,6 +35,8 @@ services:
     user: "1000:1000"
     entrypoint: ["sh", "/var/www/_docker/app/scheduler-entrypoint.sh"]
     restart: unless-stopped
+    environment:
+      - HISTFILE=/tmp/.bash_history
     volumes:
       - ./:/var/www
     depends_on:

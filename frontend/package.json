@@ -9,10 +9,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tiptap/extension-italic": "^3.30.1",
+    "@tiptap/extension-link": "^3.30.1",
+    "@tiptap/extension-placeholder": "^3.30.1",
+    "@tiptap/pm": "^3.30.1",
+    "@tiptap/starter-kit": "^3.30.1",
+    "@tiptap/vue-3": "^3.30.1",
     "axios": "^1.7.9",
     "pinia": "^2.3.0",
+    "tailwindcss": "^4.3.3",
+    "vee-validate": "^4.15.1",
     "vue": "^3.5.13",
-    "vue-router": "^4.5.0"
+    "vue-advanced-cropper": "^2.8.9",
+    "vue-router": "^4.5.0",
+    "yup": "^1.7.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
