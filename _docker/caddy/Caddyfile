@@ -1,0 +1,4 @@
+{$SSL_DOMAIN} {
+    reverse_proxy /ws* websocket:6001
+    reverse_proxy nginx:{$SITE_PORT}
+}

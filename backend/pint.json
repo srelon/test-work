@@ -1,0 +1,15 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "braces_position": {
+            "functions_opening_brace": "same_line"
+        },
+        "binary_operator_spaces": {
+            "default": "single_space",
+            "operators": {
+                "=": "single_space",
+                "=>": "single_space"
+            }
+        }
+    }
+}

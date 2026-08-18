@@ -1,0 +1,37 @@
+server {
+    listen ${SITE_PORT};
+    server_name _;
+
+    server_tokens off;
+    client_max_body_size 20M;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    location ~ /\. {
+        deny all;
+    }
+
+    location ^~ /storage/ {
+        alias /var/www/backend/public/storage/;
+    }
+
+    location ^~ /api/ {
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "same-origin" always;
+
+        fastcgi_pass app:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /var/www/backend/public/index.php;
+        fastcgi_param HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;
+        fastcgi_param HTTP_X_REAL_IP $remote_addr;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto;
+    }
+
+    location / {
+        root /var/www/frontend/dist;
+        try_files $uri $uri/ /index.html;
+    }
+}
