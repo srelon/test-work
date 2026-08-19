@@ -2,13 +2,13 @@
     <div class="flex flex-col gap-1.5">
         <label v-if="label" class="text-sm font-medium text-neutral-700">{{ label }}</label>
 
-        <div class="rounded-md border" :class="display_error ? 'border-red-400' : 'border-neutral-300'">
-            <div class="flex flex-wrap items-center gap-1 border-b border-neutral-200 p-1.5">
+        <div class="rounded-md border bg-white" :class="display_error ? 'border-red-400' : 'border-neutral-300'">
+            <div class="flex flex-wrap items-center gap-1 rounded-t-md border-b border-neutral-200 bg-neutral-50 p-1.5">
                 <button
                     v-for="tool in toolbar_buttons"
                     :key="tool.key"
                     type="button"
-                    class="flex h-8 min-w-8 items-center justify-center rounded px-2 text-sm transition-colors"
+                    class="flex h-8 min-w-8 cursor-pointer items-center justify-center rounded px-2 text-sm transition-colors"
                     :class="tool.active ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'"
                     :title="tool.title"
                     @click="tool.run"
@@ -26,7 +26,7 @@
                 </button>
             </div>
 
-            <EditorContent :editor="editor" class="comment-editor min-h-32 overflow-y-auto rounded-b-md px-3.5 py-2.5 text-sm text-neutral-900" />
+            <EditorContent :editor="editor" class="rich-text-editor min-h-32 overflow-y-auto rounded-b-md px-3.5 py-2.5 text-sm text-neutral-900" />
         </div>
 
         <span v-if="display_error" class="text-xs text-red-500">{{ display_error }}</span>
@@ -40,6 +40,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useField } from 'vee-validate'
 import { useEditor, EditorContent, mergeAttributes } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
+import CodeBlock from '@tiptap/extension-code-block'
 import Italic from '@tiptap/extension-italic'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -82,8 +83,8 @@ const toolbar_buttons = computed<ToolbarButton[]>(() => [
     {
         key: 'code',
         title: 'Code',
-        active: false,
-        run: insert_code_block,
+        active: editor.value?.isActive('codeBlock') ?? false,
+        run: () => editor.value?.chain().focus().toggleCodeBlock().run(),
     },
     {
         key: 'link',
@@ -100,6 +101,17 @@ const ItalicAsI = Italic.extend({
     },
     renderHTML({ HTMLAttributes }) {
         return ['i', mergeAttributes(HTMLAttributes), 0]
+    },
+})
+
+// Renders as a bare <code> instead of <pre><code> — same whitespace-preserving
+// codeBlock node, just serialized to match the allowed tag set exactly.
+const CodeBlockAsCode = CodeBlock.extend({
+    parseHTML() {
+        return [{ tag: 'code', preserveWhitespace: 'full' }]
+    },
+    renderHTML({ HTMLAttributes }) {
+        return ['code', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
     },
 })
 
@@ -139,6 +151,7 @@ const editor = useEditor({
             link: false,
             code: false,
         }),
+        CodeBlockAsCode,
         ItalicAsI,
         LinkWithTitle.configure({
             openOnClick: false,
@@ -153,7 +166,7 @@ const editor = useEditor({
     ],
     editorProps: {
         attributes: {
-            class: 'comment-editor-content focus:outline-none',
+            class: 'rich-text-editor-content focus:outline-none',
         },
         handleClick(view, _pos, event) {
             const target = event.target as HTMLElement
@@ -198,33 +211,14 @@ watch(field_value, (val) => {
 })
 
 onBeforeUnmount(() => editor.value?.destroy())
-
-const CODE_OPEN = '[code]'
-const CODE_CLOSE = '[/code]'
-
-// A one-off insert, not a continuous style like bold/italic — plain text markers, not a mark.
-function insert_code_block() {
-    if (!editor.value) return
-    const { from, to, empty } = editor.value.state.selection
-
-    // An explicit text node bypasses HTML parsing, so literal "<i>" etc. stays literal.
-    if (empty) {
-        editor.value.chain().focus().insertContent({ type: 'text', text: CODE_OPEN + CODE_CLOSE }).run()
-        const cursor_pos = editor.value.state.selection.from - CODE_CLOSE.length
-        editor.value.chain().setTextSelection(cursor_pos).run()
-    } else {
-        const selected_text = editor.value.state.doc.textBetween(from, to, '\n')
-        editor.value.chain().focus().insertContent({ type: 'text', text: CODE_OPEN + selected_text + CODE_CLOSE }).run()
-    }
-}
 </script>
 
 <style scoped>
-.comment-editor :deep(.comment-editor-content) {
+.rich-text-editor :deep(.rich-text-editor-content) {
     min-height: 7.5rem;
 }
 
-.comment-editor :deep(p.is-editor-empty:first-child::before) {
+.rich-text-editor :deep(p.is-editor-empty:first-child::before) {
     content: attr(data-placeholder);
     float: left;
     height: 0;
@@ -232,9 +226,24 @@ function insert_code_block() {
     pointer-events: none;
 }
 
-.comment-editor :deep(a) {
+.rich-text-editor :deep(a) {
     color: #2563eb;
     text-decoration: underline;
     cursor: pointer;
+}
+
+.rich-text-editor :deep(code) {
+    display: block;
+    overflow-x: auto;
+    border-radius: 0.375rem;
+    background-color: #2b2b2b;
+    color: #ffc66d;
+    padding: 0.5rem 0.75rem;
+    margin: 0.25rem 0;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85em;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 </style>

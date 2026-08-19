@@ -1,6 +1,6 @@
 <template>
     <button
-        class="inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50"
+        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50"
         :class="variant_classes[variant]"
         :type="type"
         :disabled="disabled || loading"
@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 interface Props {
-    variant?: 'primary' | 'outline' | 'text'
+    variant?: 'primary' | 'outline' | 'text' | 'chip' | 'accent'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
     loading?: boolean
@@ -33,5 +33,7 @@ const variant_classes: Record<NonNullable<Props['variant']>, string> = {
     primary: 'bg-neutral-900 text-white hover:bg-neutral-700',
     outline: 'border border-neutral-300 text-neutral-900 hover:border-neutral-900',
     text: 'p-0 text-neutral-900 hover:text-neutral-600',
+    chip: 'rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-200',
+    accent: 'rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100',
 }
 </script>

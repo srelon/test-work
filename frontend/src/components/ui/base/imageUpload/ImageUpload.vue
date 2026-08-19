@@ -23,7 +23,7 @@
             <button
                 type="button"
                 title="Remove image"
-                class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900 text-white shadow hover:bg-neutral-700"
+                class="absolute -right-2 -top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-neutral-900 text-white shadow hover:bg-neutral-700"
                 @click="remove_image"
             >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import BaseButton from '@/components/ui/base/BaseButton.vue'
-import ImageLightbox from '@/components/ui/comments/ImageLightbox.vue'
+import ImageLightbox from '@/components/ui/base/ImageLightbox.vue'
 import CropModal from './CropModal.vue'
 
 interface Props {
