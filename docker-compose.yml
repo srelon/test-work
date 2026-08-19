@@ -45,22 +45,22 @@ services:
       db:
         condition: service_healthy
 
-  websocket:
-    image: node:20-alpine
-    container_name: dzencode_websocket
-    working_dir: /var/www/websocket
-    command: sh -c "npm install && npm start"
+  reverb:
+    build:
+      context: .
+      dockerfile: ./_docker/app/Dockerfile
+    container_name: dzencode_reverb
+    user: "1000:1000"
+    entrypoint: ["sh", "/var/www/_docker/app/reverb-entrypoint.sh"]
+    environment:
+      - HISTFILE=/tmp/.bash_history
     ports:
       - "6001:6001"
     volumes:
-      - ./websocket:/var/www/websocket
+      - ./:/var/www
     depends_on:
-      - redis
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      app:
+        condition: service_started
 
   redis:
     image: redis:7-alpine

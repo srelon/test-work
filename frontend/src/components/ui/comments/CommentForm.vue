@@ -7,7 +7,9 @@
         @submit="on_submit"
     >
         <div v-if="reply_to_name" class="flex w-fit items-center gap-2 rounded-full bg-white py-1.5 pl-3 pr-2 text-xs text-neutral-700 ring-1 ring-neutral-200">
-            Replying to <strong class="font-semibold">{{ reply_to_name }}</strong>
+            <BaseButton variant="link" @click="on_replying_to_click">
+                Replying to <strong class="font-semibold">{{ reply_to_name }}</strong>
+            </BaseButton>
             <button
                 type="button"
                 aria-label="Clear reply target"
@@ -44,9 +46,9 @@ import BaseInput from '@/components/ui/base/BaseInput.vue'
 import RichTextEditor from '@/components/ui/base/editor/RichTextEditor.vue'
 import ImageUpload, { type CommentImage } from '@/components/ui/base/imageUpload/ImageUpload.vue'
 import { useAuthorStore } from '@/stores/author'
+import { useCommentAnchor } from '@/composables/useCommentAnchor'
 import axios from 'axios'
 import api from '@/plugins/axios'
-import type { Comment } from '@/types/comment'
 
 interface Props {
     variant?: 'default' | 'reply'
@@ -66,15 +68,20 @@ const {
 
 const emit = defineEmits<{
     'clear-reply-to': []
-    submitted: [comment: Comment]
+    submitted: []
 }>()
 
 const author_store = useAuthorStore()
+const { scroll_to_comment } = useCommentAnchor()
 
 const is_submitting = ref(false)
 const image = ref<CommentImage | null>(null)
 
 const MAX_TEXT_LENGTH = 1000
+
+function on_replying_to_click() {
+    if (replied_to_comment_id !== undefined) scroll_to_comment(replied_to_comment_id)
+}
 
 function plain_text_length(html: string | undefined): number {
     return (html ?? '').replace(/<[^>]*>/g, '').trim().length
@@ -82,7 +89,9 @@ function plain_text_length(html: string | undefined): number {
 
 const schema = object({
     user_name: string()
-        .min(1, 'User Name is required'),
+        .min(1, 'User Name is required')
+        .max(100, 'User Name is too long')
+        .matches(/^[A-Za-z0-9]+$/, 'User Name may only contain Latin letters and digits'),
     email: string().min(1, 'Email is required').email('Enter a valid email'),
     home_page: string().url('Enter a valid URL (e.g. https://example.com)'),
     text: string()
@@ -110,7 +119,7 @@ function on_submit(form_values: Record<string, unknown>, { setErrors }: { setErr
 
     const typed_values = form_values as unknown as CommentFormValues
 
-    api.post<{ data: Comment }>('comments', {
+    api.post('comments', {
         parent_id: parent_id,
         replied_to_comment_id: replied_to_comment_id,
         user_name: typed_values.user_name,
@@ -118,10 +127,10 @@ function on_submit(form_values: Record<string, unknown>, { setErrors }: { setErr
         home_page: typed_values.home_page || undefined,
         text: typed_values.text,
         image: image.value,
-    }).then(({ data }) => {
+    }).then(() => {
         author_store.user_name = typed_values.user_name
         author_store.email = typed_values.email
-        emit('submitted', data.data)
+        emit('submitted')
     }).catch((error) => {
         const response = axios.isAxiosError(error) ? error.response?.data?.errors : null
         if (response) {

@@ -35,8 +35,19 @@ logs-app:
 logs-db:
 	$(DOCKER_COMPOSE) logs -f db
 
-logs-websocket:
-	$(DOCKER_COMPOSE) logs -f websocket
+logs-reverb:
+	$(DOCKER_COMPOSE) logs -f reverb
+
+reverb-keys:
+	@NEW_ID=$$(openssl rand -hex 8); \
+	NEW_KEY=$$(openssl rand -hex 16); \
+	NEW_SECRET=$$(openssl rand -hex 32); \
+	sed -i.bak "s#^REVERB_APP_ID=.*#REVERB_APP_ID=$$NEW_ID#" backend/.env; \
+	sed -i.bak "s#^REVERB_APP_KEY=.*#REVERB_APP_KEY=$$NEW_KEY#" backend/.env; \
+	sed -i.bak "s#^REVERB_APP_SECRET=.*#REVERB_APP_SECRET=$$NEW_SECRET#" backend/.env; \
+	sed -i.bak "s#^VITE_REVERB_APP_KEY=.*#VITE_REVERB_APP_KEY=$$NEW_KEY#" frontend/.env; \
+	rm -f backend/.env.bak frontend/.env.bak; \
+	echo "Reverb app id/key/secret rotated in backend/.env and frontend/.env. Restart the reverb container and rebuild the frontend for it to take effect."
 
 scheduler-logs:
 	docker logs -f dzencode_scheduler

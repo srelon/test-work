@@ -1,5 +1,5 @@
-const FLASH_CLASS = 'comment-item--flash'
-const FLASH_DURATION_MS = 1200
+export const FLASH_CLASS = 'comment-item--flash'
+export const FLASH_DURATION_MS = 1200
 
 export function useCommentAnchor() {
     function scroll_to_comment(id: number, block: ScrollLogicalPosition = 'center') {

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CommentFilterRequest;
 use App\Http\Requests\CommentRequest;
-use App\Http\Resources\CommentResource;
+use App\Models\Comment;
 use App\Services\CommentService;
 
 class CommentController extends Controller
@@ -20,6 +20,12 @@ class CommentController extends Controller
     public function store(CommentRequest $request) {
         $comment = $this->commentService->create($request->validated());
 
-        return $this->respondWithJson((new CommentResource($comment))->resolve(), 201);
+        return $this->respondWithJson($comment, 201);
+    }
+
+    public function replies(Comment $comment) {
+        abort_if($comment->parent_id !== null, 404);
+
+        return $this->respondWithJson(['replies' => $this->commentService->getReplies($comment)]);
     }
 }

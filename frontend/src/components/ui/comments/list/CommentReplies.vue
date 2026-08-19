@@ -1,11 +1,11 @@
 <template>
     <BaseButton
-        v-if="show_replies || comment.replies.length > 0"
+        v-if="show_replies || comment.replies_count > 0"
         variant="text"
         class="w-full justify-center border-t border-neutral-200 pt-3 text-center"
         @click="show_replies = !show_replies"
     >
-        {{ show_replies ? 'Hide replies' : `Show replies (${comment.replies.length})` }}
+        {{ show_replies ? 'Hide replies' : `Show replies (${comment.replies_count})` }}
     </BaseButton>
 
     <div v-if="show_replies" class="flex items-stretch">
@@ -19,6 +19,8 @@
         </button>
 
         <div class="flex flex-1 flex-col gap-4">
+            <p v-if="is_loading_replies" class="text-sm text-neutral-400">Loading replies...</p>
+
             <CommentItem
                 v-for="reply in comment.replies"
                 :key="reply.id"
@@ -44,10 +46,11 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import BaseButton from '@/components/ui/base/BaseButton.vue'
 import CommentForm from '@/components/ui/comments/CommentForm.vue'
 import CommentItem from './CommentItem.vue'
+import api from '@/plugins/axios'
 import { useCommentAnchor } from '@/composables/useCommentAnchor'
 import type { Comment } from '@/types/comment'
 
@@ -60,6 +63,7 @@ const props = defineProps<Props>()
 const { scroll_to_comment } = useCommentAnchor()
 
 const show_replies = ref(false)
+const is_loading_replies = ref(false)
 const compose_wrap = ref<HTMLElement | null>(null)
 const replying_to = ref<Comment | null>(null)
 const reply_form_key = ref(0)
@@ -68,14 +72,29 @@ function scroll_to_compose() {
     nextTick(() => compose_wrap.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
 }
 
+function fetch_replies() {
+    if (props.comment.replies_loaded) return
+
+    is_loading_replies.value = true
+    api.get<{ data: { replies: Comment[] } }>(`comments/${props.comment.id}/replies`).then(({ data }) => {
+        props.comment.replies = data.data.replies
+        props.comment.replies_loaded = true
+    }).finally(() => {
+        is_loading_replies.value = false
+    })
+}
+
+watch(show_replies, (open) => {
+    if (open) fetch_replies()
+})
+
 function on_reply_to_me(reply: Comment) {
     replying_to.value = reply
     show_replies.value = true
     scroll_to_compose()
 }
 
-function on_reply_submitted(reply: Comment) {
-    props.comment.replies.push(reply)
+function on_reply_submitted() {
     replying_to.value = null
     reply_form_key.value += 1
 }

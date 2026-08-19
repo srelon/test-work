@@ -1,8 +1,8 @@
 <template>
     <div
         :id="`comment-${comment.id}`"
-        class="comment-item flex flex-col gap-2 border border-neutral-200"
-        :class="is_reply ? 'comment-item--reply rounded-r-xl bg-neutral-50 p-4' : 'rounded-xl bg-white p-5 shadow-sm sm:p-6'"
+        class="comment-item flex flex-col gap-2 border"
+        :class="[card_classes, { [FLASH_CLASS]: is_flashing }]"
     >
         <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span class="text-sm font-semibold text-neutral-900">{{ comment.user_name }}</span>
@@ -60,12 +60,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import BaseButton from '@/components/ui/base/BaseButton.vue'
 import ImageLightbox from '@/components/ui/base/ImageLightbox.vue'
 import CommentReplies from './CommentReplies.vue'
 import { sanitize_comment_html } from '@/utils/sanitizeCommentHtml'
-import { useCommentAnchor } from '@/composables/useCommentAnchor'
+import { FLASH_CLASS, FLASH_DURATION_MS, useCommentAnchor } from '@/composables/useCommentAnchor'
 import type { Comment } from '@/types/comment'
 
 const MAX_HOME_PAGE_LENGTH = 50
@@ -73,10 +73,12 @@ const MAX_HOME_PAGE_LENGTH = 50
 interface Props {
     comment: Comment
     is_reply?: boolean
+    is_new?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
     is_reply: false,
+    is_new: false,
 })
 
 const emit = defineEmits<{
@@ -87,6 +89,12 @@ const { scroll_to_comment } = useCommentAnchor()
 
 const lightbox_open = ref(false)
 const replies_ref = ref<InstanceType<typeof CommentReplies> | null>(null)
+const is_flashing = ref(props.is_new)
+
+const card_classes = computed(() => {
+    if (props.is_reply) return 'comment-item--reply rounded-r-xl border-neutral-200 bg-neutral-50 p-4'
+    return 'rounded-xl border-neutral-200 bg-white p-5 shadow-sm sm:p-6'
+})
 
 const sanitized_text = computed(() => sanitize_comment_html(props.comment.text))
 
@@ -100,6 +108,11 @@ const formatted_date = computed(() => new Date(props.comment.created_at).toLocal
     month: 'short',
     day: 'numeric',
 }))
+
+onMounted(() => {
+    if (! props.is_new) return
+    setTimeout(() => { is_flashing.value = false }, FLASH_DURATION_MS)
+})
 
 function on_reply_click() {
     if (props.is_reply) {

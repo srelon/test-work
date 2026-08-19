@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\CommentCreated;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Traits\SavesBase64Images;
@@ -25,14 +26,20 @@ class CommentService
     public function getPaginated(array $filters, int $perPage = 25): LengthAwarePaginator {
         $query = Comment::query()
             ->whereNull('parent_id')
-            ->with(['replies' => fn ($query) => $query->oldest()->with('repliedTo')]);
+            ->withCount('replies');
 
         $this->applySort($query, $filters['sort_by'] ?? 'newest');
 
         return $query->paginate($perPage)->through(fn (Comment $comment) => (new CommentResource($comment))->resolve());
     }
 
-    public function create(array $data): Comment {
+    public function getReplies(Comment $comment): array {
+        return $comment->replies()->oldest()->with('repliedTo')->get()
+            ->map(fn (Comment $reply) => (new CommentResource($reply))->resolve())
+            ->all();
+    }
+
+    public function create(array $data): array {
         $comment = Comment::create([
             'parent_id' => $data['parent_id'] ?? null,
             'replied_to_comment_id' => $data['replied_to_comment_id'] ?? null,
@@ -45,7 +52,9 @@ class CommentService
 
         $comment->load('repliedTo');
 
-        return $comment;
+        CommentCreated::dispatch($comment);
+
+        return (new CommentResource($comment))->resolve();
     }
 
     public function sanitizeBody(string $body): string {
