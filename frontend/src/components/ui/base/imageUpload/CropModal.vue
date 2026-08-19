@@ -25,11 +25,11 @@ import 'vue-advanced-cropper/dist/style.css'
 import BaseButton from '@/components/ui/base/BaseButton.vue'
 
 interface Props {
-    targetWidth?: number
-    targetHeight?: number
+    targetWidth: number
+    targetHeight: number
 }
 
-const { targetWidth: target_width = 320, targetHeight: target_height = 240 } = defineProps<Props>()
+const { targetWidth: target_width, targetHeight: target_height } = defineProps<Props>()
 
 const emit = defineEmits<{
     cropped: [data_url: string]
