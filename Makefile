@@ -38,6 +38,9 @@ logs-db:
 logs-reverb:
 	$(DOCKER_COMPOSE) logs -f reverb
 
+logs-laravel:
+	tail -f backend/storage/logs/laravel.log
+
 reverb-keys:
 	@NEW_ID=$$(openssl rand -hex 8); \
 	NEW_KEY=$$(openssl rand -hex 16); \

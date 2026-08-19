@@ -8,6 +8,8 @@ use App\Models\Comment;
 use App\Traits\SavesBase64Images;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator as ConcreteLengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 
 class CommentService
 {
@@ -23,20 +25,45 @@ class CommentService
 
     private const CROPPED_HEIGHT = 240;
 
+    private const CACHE_TTL = 3600;
+
     public function getPaginated(array $filters, int $perPage = 25): LengthAwarePaginator {
-        $query = Comment::query()
-            ->whereNull('parent_id')
-            ->withCount('replies');
+        $sort_by = $filters['sort_by'] ?? 'newest';
+        $page = $filters['page'] ?? 1;
 
-        $this->applySort($query, $filters['sort_by'] ?? 'newest');
+        $cached = Cache::tags(['comments_list'])->remember(
+            "comments:index:{$sort_by}:{$page}",
+            self::CACHE_TTL,
+            function () use ($sort_by, $perPage, $page) {
+                $query = Comment::query()->whereNull('parent_id');
 
-        return $query->paginate($perPage)->through(fn (Comment $comment) => (new CommentResource($comment))->resolve());
+                $this->applySort($query, $sort_by);
+
+                $paginated = $query->paginate($perPage, ['*'], 'page', $page)
+                    ->through(fn (Comment $comment) => (new CommentResource($comment))->resolve());
+
+                return [
+                    'data' => $paginated->items(),
+                    'total' => $paginated->total(),
+                    'per_page' => $paginated->perPage(),
+                    'current_page' => $paginated->currentPage(),
+                ];
+            },
+        );
+
+        $this->hydrateRepliesCount($cached['data']);
+
+        return new ConcreteLengthAwarePaginator($cached['data'], $cached['total'], $cached['per_page'], $cached['current_page']);
     }
 
     public function getReplies(Comment $comment): array {
-        return $comment->replies()->oldest()->with('repliedTo')->get()
-            ->map(fn (Comment $reply) => (new CommentResource($reply))->resolve())
-            ->all();
+        return Cache::remember(
+            "comments:replies:{$comment->id}",
+            self::CACHE_TTL,
+            fn () => $comment->replies()->oldest()->with('repliedTo')->get()
+                ->map(fn (Comment $reply) => (new CommentResource($reply))->resolve())
+                ->all(),
+        );
     }
 
     public function create(array $data): array {
@@ -54,7 +81,52 @@ class CommentService
 
         CommentCreated::dispatch($comment);
 
+        if ($comment->parent_id === null) {
+            Cache::tags(['comments_list'])->flush();
+            Cache::forever($this->repliesCountKey($comment->id), 0);
+        } else {
+            $count = Comment::where('parent_id', $comment->parent_id)->count();
+            Cache::forever($this->repliesCountKey($comment->parent_id), $count);
+            Cache::forget("comments:replies:{$comment->parent_id}");
+        }
+
         return (new CommentResource($comment))->resolve();
+    }
+
+    protected function hydrateRepliesCount(array &$items): void {
+        if (empty($items)) {
+            return;
+        }
+
+        $keys = collect($items)->mapWithKeys(fn (array $item) => [$item['id'] => $this->repliesCountKey($item['id'])]);
+
+        $cachedCounts = Cache::many($keys->values()->all());
+
+
+        $missingIds = $keys->filter(fn (string $cache_key) => $cachedCounts[$cache_key] === null)->keys();
+
+        $freshCounts = $missingIds->isEmpty()
+            ? collect()
+            : Comment::whereIn('parent_id', $missingIds->all())
+                ->selectRaw('parent_id, count(*) as aggregate')
+                ->groupBy('parent_id')
+                ->pluck('aggregate', 'parent_id');
+
+        foreach ($items as &$item) {
+            $count = (int) ($cachedCounts[$keys[$item['id']]] ?? $freshCounts[$item['id']] ?? 0);
+
+            if ($missingIds->contains($item['id'])) {
+                Cache::forever($keys[$item['id']], $count);
+            }
+
+            $item['replies_count'] = $count;
+        }
+
+        unset($item);
+    }
+
+    protected function repliesCountKey(int $commentId): string {
+        return "comments:{$commentId}:replies_count";
     }
 
     public function sanitizeBody(string $body): string {

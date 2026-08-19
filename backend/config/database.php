@@ -21,6 +21,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Query Log
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, every query executed against any connection is written
+    | to the log via DB::listen() in AppServiceProvider::boot().
+    |
+    */
+
+    'query_log' => env('DB_QUERY_LOG', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

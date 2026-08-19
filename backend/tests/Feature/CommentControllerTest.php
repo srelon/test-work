@@ -100,6 +100,51 @@ class CommentControllerTest extends TestCase
         $this->assertTrue(Schema::hasTable('comments'));
     }
 
+    public function test_index_reflects_a_new_comment_after_the_page_was_already_cached(): void {
+        Comment::create(['user_name' => 'Jane Doe', 'email' => 'jane@example.com', 'body' => '<p>First</p>']);
+
+        $this->getJson('/api/comments')->assertJsonCount(1, 'data.items.data');
+
+        $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe',
+            'email' => 'john@example.com',
+            'text' => '<p>Second</p>',
+        ])->assertStatus(201);
+
+        $this->getJson('/api/comments')->assertJsonCount(2, 'data.items.data');
+    }
+
+    public function test_index_reflects_updated_replies_count_after_the_page_was_already_cached(): void {
+        $parent = Comment::create(['user_name' => 'Jane Doe', 'email' => 'jane@example.com', 'body' => '<p>Top level</p>']);
+
+        $this->getJson('/api/comments')->assertJsonPath('data.items.data.0.replies_count', 0);
+
+        $this->postJson('/api/comments', [
+            'parent_id' => $parent->id,
+            'user_name' => 'JohnDoe',
+            'email' => 'john@example.com',
+            'text' => '<p>A reply</p>',
+        ])->assertStatus(201);
+
+        $this->getJson('/api/comments')->assertJsonPath('data.items.data.0.replies_count', 1);
+    }
+
+    public function test_replies_reflects_a_new_reply_after_it_was_already_cached(): void {
+        $parent = Comment::create(['user_name' => 'Jane Doe', 'email' => 'jane@example.com', 'body' => '<p>Top level</p>']);
+        Comment::create(['parent_id' => $parent->id, 'user_name' => 'John Smith', 'email' => 'john@example.com', 'body' => '<p>First reply</p>']);
+
+        $this->getJson("/api/comments/{$parent->id}/replies")->assertJsonCount(1, 'data.replies');
+
+        $this->postJson('/api/comments', [
+            'parent_id' => $parent->id,
+            'user_name' => 'MariaLane',
+            'email' => 'maria@example.com',
+            'text' => '<p>Second reply</p>',
+        ])->assertStatus(201);
+
+        $this->getJson("/api/comments/{$parent->id}/replies")->assertJsonCount(2, 'data.replies');
+    }
+
     public function test_store_creates_a_top_level_comment(): void {
         $response = $this->postJson('/api/comments', [
             'user_name' => 'JaneDoe',
