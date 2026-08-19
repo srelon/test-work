@@ -12,7 +12,29 @@ class CommentControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_index_returns_top_level_comments_with_nested_replies(): void {
+    public function test_index_returns_top_level_comments_with_replies_count_only(): void {
+        $parent = Comment::create([
+            'user_name' => 'Jane Doe',
+            'email' => 'jane@example.com',
+            'body' => '<p>Top level</p>',
+        ]);
+
+        Comment::create([
+            'parent_id' => $parent->id,
+            'user_name' => 'John Smith',
+            'email' => 'john@example.com',
+            'body' => '<p>A reply</p>',
+        ]);
+
+        $response = $this->getJson('/api/comments');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.items.data.0.id', $parent->id);
+        $response->assertJsonPath('data.items.data.0.replies_count', 1);
+        $response->assertJsonMissingPath('data.items.data.0.replies');
+    }
+
+    public function test_replies_returns_child_comments_for_a_top_level_comment(): void {
         $parent = Comment::create([
             'user_name' => 'Jane Doe',
             'email' => 'jane@example.com',
@@ -26,12 +48,30 @@ class CommentControllerTest extends TestCase
             'body' => '<p>A reply</p>',
         ]);
 
-        $response = $this->getJson('/api/comments');
+        $response = $this->getJson("/api/comments/{$parent->id}/replies");
 
         $response->assertStatus(200);
-        $response->assertJsonPath('data.items.data.0.id', $parent->id);
-        $response->assertJsonPath('data.items.data.0.replies.0.id', $reply->id);
-        $response->assertJsonPath('data.items.data.0.replies_count', 1);
+        $response->assertJsonPath('data.replies.0.id', $reply->id);
+        $response->assertJsonPath('data.replies.0.user_name', 'John Smith');
+    }
+
+    public function test_replies_rejects_a_reply_id(): void {
+        $parent = Comment::create([
+            'user_name' => 'Jane Doe',
+            'email' => 'jane@example.com',
+            'body' => '<p>Top level</p>',
+        ]);
+
+        $reply = Comment::create([
+            'parent_id' => $parent->id,
+            'user_name' => 'John Smith',
+            'email' => 'john@example.com',
+            'body' => '<p>A reply</p>',
+        ]);
+
+        $response = $this->getJson("/api/comments/{$reply->id}/replies");
+
+        $response->assertStatus(404);
     }
 
     public function test_index_orders_by_requested_sort(): void {

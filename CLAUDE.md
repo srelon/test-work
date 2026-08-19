@@ -8,11 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-Monorepo with three independent services:
+Monorepo with two services plus Laravel's own broadcasting server:
 
-- `backend/` — Laravel 12 API only, no admin panel, no Livewire
+- `backend/` — Laravel 12 API only, no admin panel, no Livewire; also runs Laravel Reverb (`reverb` container) for real-time broadcasting
 - `frontend/` — Vue 3 + TypeScript + Vite (public site)
-- `websocket/` — Node.js WebSocket server (ws + ioredis + pino)
+
+There is no separate custom websocket service — real-time went through a hand-rolled Node/`ws`/Redis-pub-sub relay early on, but was replaced with Laravel Reverb + Laravel Echo per spec. See § Real-time.
 
 All services run in Docker. The entire stack is mounted as volumes — no image rebuilds needed for code changes, only for dependency changes.
 
@@ -38,9 +39,9 @@ make fresh
 make prod
 ```
 
-**Container names:** `dzencode_app`, `dzencode_nginx`, `dzencode_db`, `dzencode_redis`, `dzencode_scheduler`, `dzencode_websocket`; `dzencode_caddy` in production only.
+**Container names:** `dzencode_app`, `dzencode_nginx`, `dzencode_db`, `dzencode_redis`, `dzencode_scheduler`, `dzencode_reverb`; `dzencode_caddy` in production only.
 
-**Ports:** site + API on `SITE_PORT` (`.env`, default `8880`) — API at `/api/`; Vue dev server (`make site`) — `5173`; phpMyAdmin — `8080`; WebSocket — `6001`; MySQL — `8101`.
+**Ports:** site + API on `SITE_PORT` (`.env`, default `8880`) — API at `/api/`; Vue dev server (`make site`) — `5173`; phpMyAdmin — `8080`; Reverb (WebSocket) — `6001`; MySQL — `8101`.
 
 **Production HTTPS** is `docker-compose.prod.yml`, applied on top of the base file (`make prod`), not a change to `docker-compose.yml` itself — that file stays the plain-HTTP local-dev setup. It adds one `caddy` container (`_docker/caddy/Caddyfile`) that reverse-proxies `443`/`80` to the existing `nginx` service, obtaining its own Let's Encrypt certificate automatically. Requires `SSL_DOMAIN` set in the root `.env` and ports 80/443 reachable from the internet (Let's Encrypt's HTTP-01 challenge).
 
@@ -58,9 +59,13 @@ Root `.env` controls Docker (ports, MySQL credentials). Backend has its own `bac
 
 ## Real-time
 
-Redis pub/sub is meant to connect backend to the websocket server: PHP publishes to a Redis channel → `websocket/server.js` subscribes and broadcasts to connected clients over `ws`.
+Real-time is Laravel Reverb (self-hosted, Pusher-protocol-compatible broadcasting server, part of `backend/`) on the server side and Laravel Echo (`laravel-echo` + `pusher-js`) on the client — this is a spec requirement, not a from-scratch choice. There is no custom Node websocket relay and no manual `Redis::publish()` — Reverb owns the whole connection lifecycle itself; Redis is only involved if `REVERB_SCALING_ENABLED` is turned on to sync multiple Reverb instances, which isn't the case here (single instance).
 
-**Not wired up on the backend side yet.** `websocket/channels/index.js` already handles subscribe/unsubscribe/relay against Redis — a backend feature that needs live updates just needs to `Redis::publish(channel, payload)` (or use Laravel's broadcasting layer) to the same channel name a client has subscribed to. No private-channel auth exists yet (no ticket/ownership check) — every channel is effectively public right now. Design that before exposing anything user-specific over a channel.
+**Wired up for comments, the first real-time feature — the pattern to repeat for the next one:** an `App\Events\*` event implements `ShouldBroadcastNow` (not `ShouldBroadcast` — this project has no dedicated queue worker running broadcast jobs, so a queued event would silently never send; `Now` runs it synchronously in the request) and defines `broadcastOn()` (a plain `new Channel(...)` — private/presence channels need auth wiring that doesn't exist yet, see below), `broadcastAs()` (the wire event name, e.g. `'comment.created'`), and `broadcastWith()` (the payload array). `CommentService::create()` just calls `CommentCreated::dispatch($comment)` — no separate Listener needed, Laravel's broadcasting integration picks up `ShouldBroadcast*` automatically. On the frontend, `plugins/echo.ts` sets up one shared `Echo` instance (`broadcaster: 'reverb'`); a page-scoped component subscribes with `echo.channel(name).listen('.event.name', handler)` (the **leading dot is required** — it tells Echo not to prefix the event name with the `App.Events` namespace) and cleans up with `echo.leaveChannel(name)` on unmount — see `views/Home.vue`.
+
+No private-channel auth exists yet (`routes/channels.php` is empty, no `App\Models\User` in this project at all) — every channel is effectively public right now, fine for comments (already public/anonymous). A future feature needing a private/presence channel needs real auth wired through `routes/channels.php`'s `Broadcast::channel()` before it's safe to use.
+
+**Docker/env specifics:** the `reverb` container shares `backend/`'s Dockerfile/image and runs `php artisan reverb:start` (via `_docker/app/reverb-entrypoint.sh`, same wait-for-vendor pattern as `scheduler-entrypoint.sh`) — needs the `pcntl` and `sockets` PHP extensions (already added to `_docker/app/Dockerfile`; Reverb's signal handling throws `Undefined constant SIGINT` without `pcntl`). `REVERB_HOST`/`REVERB_PORT` in `backend/.env` are the address the **backend PHP process** uses to reach Reverb over the Docker network (`reverb:6001`, the Docker service name) — this is a *different* value from `VITE_REVERB_HOST`/`VITE_REVERB_PORT` in `frontend/.env` (`127.0.0.1:6001`, the host-mapped port a browser on the Windows host actually connects to), the same "container-name-for-server-to-server vs. `127.0.0.1`-for-browser" split already used for `VITE_API_URL` vs. `APP_URL`. `REVERB_SERVER_HOST`/`REVERB_SERVER_PORT` (separate from `REVERB_HOST`/`REVERB_PORT`) control what the server actually binds to (`0.0.0.0:6001`) — don't conflate the two pairs.
 
 ## Dependencies
 

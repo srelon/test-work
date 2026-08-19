@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
           --with-freetype \
           --with-jpeg \
           --with-webp && \
-      docker-php-ext-install pdo_mysql bcmath gd zip intl && \
+      docker-php-ext-install pdo_mysql bcmath gd zip intl pcntl sockets && \
       apt-get clean && \
       rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

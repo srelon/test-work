@@ -21,4 +21,6 @@ export interface Comment {
     created_at: string
     replied_to?: CommentRepliedTo
     replies: Comment[]
+    replies_count: number
+    replies_loaded: boolean
 }
