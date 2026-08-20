@@ -290,6 +290,35 @@ class CommentControllerTest extends TestCase
         $response->assertJsonValidationErrors('image.cropped');
     }
 
+    public function test_store_rejects_an_svg_image(): void {
+        $svg = 'data:image/svg+xml;base64,'.base64_encode('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>');
+
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'text' => '<p>Hello world</p>',
+            'image' => ['original' => $svg, 'cropped' => $svg],
+            'recaptcha_token' => 'test-token',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['image.original', 'image.cropped']);
+    }
+
+    public function test_store_accepts_a_valid_png_image(): void {
+        $png = 'data:image/png;base64,'.base64_encode($this->fakePngBytes());
+
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'text' => '<p>Hello world</p>',
+            'image' => ['original' => $png, 'cropped' => $png],
+            'recaptcha_token' => 'test-token',
+        ]);
+
+        $response->assertStatus(202);
+    }
+
     public function test_store_requires_recaptcha_token(): void {
         $response = $this->postJson('/api/comments', [
             'user_name' => 'JohnDoe123',
@@ -327,5 +356,15 @@ class CommentControllerTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['parent_id', 'replied_to_comment_id']);
         $this->assertTrue(Schema::hasTable('comments'));
+    }
+
+    protected function fakePngBytes(int $width = 2, int $height = 2): string {
+        $image = imagecreatetruecolor($width, $height);
+        ob_start();
+        imagepng($image);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        return $bytes;
     }
 }

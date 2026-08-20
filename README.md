@@ -17,6 +17,8 @@
 ```
 cp .env.example .env
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+docker compose up -d --build
 make up
 ```
 

@@ -51,8 +51,8 @@ class CommentRequest extends FormRequest
                 },
             ],
             'image' => ['nullable', 'array'],
-            'image.original' => ['required_with:image', 'string'],
-            'image.cropped' => ['required_with:image', 'string'],
+            'image.original' => ['required_with:image', 'string', $this->decodableImageRule()],
+            'image.cropped' => ['required_with:image', 'string', $this->decodableImageRule()],
             'recaptcha_token' => [
                 'required',
                 'string',
@@ -63,5 +63,20 @@ class CommentRequest extends FormRequest
                 },
             ],
         ];
+    }
+
+    private function decodableImageRule(): Closure {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            if (! is_string($value)) {
+                return;
+            }
+
+            $encoded = str_contains($value, ',') ? substr($value, strpos($value, ',') + 1) : $value;
+            $decoded = base64_decode($encoded, true);
+
+            if ($decoded === false || @imagecreatefromstring($decoded) === false) {
+                $fail('The image must be a valid PNG, JPEG, GIF, or WebP file (SVG and other vector formats are not supported).');
+            }
+        };
     }
 }

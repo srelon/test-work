@@ -11,6 +11,7 @@ use App\Traits\SavesBase64Images;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator as ConcreteLengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class CommentService
@@ -81,6 +82,17 @@ class CommentService
     }
 
     public function persist(array $data): void {
+        try {
+            $imageColumns = $this->storeImage($data['image'] ?? null);
+        } catch (Throwable $e) {
+            Log::warning('Comment image processing failed, comment was not persisted.', [
+                'user_name' => $data['user_name'] ?? null,
+                'exception' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+
         $comment = Comment::create([
             'parent_id' => $data['parent_id'] ?? null,
             'replied_to_comment_id' => $data['replied_to_comment_id'] ?? null,
@@ -88,7 +100,7 @@ class CommentService
             'email' => $data['email'],
             'home_page' => $data['home_page'] ?? null,
             'body' => $data['text'],
-            ...$this->storeImage($data['image'] ?? null),
+            ...$imageColumns,
         ]);
 
         $comment->load('repliedTo');
