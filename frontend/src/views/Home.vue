@@ -98,7 +98,7 @@ function on_comment_created(data: CommentCreatedPayload) {
 
         parent.replies_count += 1
         if (parent.replies_loaded && ! parent.replies.some((reply) => reply.id === data.id)) {
-            parent.replies.push(data)
+            parent.replies.push({ ...data, is_new: true })
         }
         return
     }

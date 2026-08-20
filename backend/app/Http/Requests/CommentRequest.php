@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Comment;
+use App\Services\RecaptchaService;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -52,6 +53,15 @@ class CommentRequest extends FormRequest
             'image' => ['nullable', 'array'],
             'image.original' => ['required_with:image', 'string'],
             'image.cropped' => ['required_with:image', 'string'],
+            'recaptcha_token' => [
+                'required',
+                'string',
+                function (string $attribute, mixed $value, Closure $fail) {
+                    if (! app(RecaptchaService::class)->verify($value, $this->ip())) {
+                        $fail('reCAPTCHA verification failed. Please try again.');
+                    }
+                },
+            ],
         ];
     }
 }

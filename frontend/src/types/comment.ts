@@ -23,4 +23,5 @@ export interface Comment {
     replies: Comment[]
     replies_count: number
     replies_loaded: boolean
+    is_new?: boolean
 }

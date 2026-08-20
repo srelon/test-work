@@ -7,17 +7,20 @@ use App\Services\CommentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\Feature\Concerns\FakesRabbitMQService;
+use Tests\Feature\Concerns\FakesRecaptcha;
 use Tests\TestCase;
 
 class CommentControllerTest extends TestCase
 {
     use RefreshDatabase;
     use FakesRabbitMQService;
+    use FakesRecaptcha;
 
     protected function setUp(): void {
         parent::setUp();
 
         $this->fakeRabbitMQService();
+        $this->fakeRecaptcha();
     }
 
     public function test_index_returns_top_level_comments_with_replies_count_only(): void {
@@ -208,6 +211,7 @@ class CommentControllerTest extends TestCase
             'user_name' => 'JohnDoe123',
             'email' => 'john@example.com',
             'text' => '<p>Hello world</p>',
+            'recaptcha_token' => 'test-token',
         ]);
 
         $response->assertStatus(202);
@@ -229,9 +233,86 @@ class CommentControllerTest extends TestCase
             'user_name' => 'ExactLength',
             'email' => 'exact@example.com',
             'text' => '<p>'.str_repeat('a', 1000).'</p>',
+            'recaptcha_token' => 'test-token',
         ]);
 
         $response->assertStatus(202);
+    }
+
+    public function test_store_rejects_a_non_url_home_page(): void {
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'home_page' => 'not-a-url',
+            'text' => '<p>Hello world</p>',
+            'recaptcha_token' => 'test-token',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('home_page');
+    }
+
+    public function test_store_accepts_a_valid_home_page_url(): void {
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'home_page' => 'https://example.com',
+            'text' => '<p>Hello world</p>',
+            'recaptcha_token' => 'test-token',
+        ]);
+
+        $response->assertStatus(202);
+    }
+
+    public function test_store_rejects_image_missing_original(): void {
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'text' => '<p>Hello world</p>',
+            'image' => ['cropped' => 'data:image/png;base64,abc'],
+            'recaptcha_token' => 'test-token',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('image.original');
+    }
+
+    public function test_store_rejects_image_missing_cropped(): void {
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'text' => '<p>Hello world</p>',
+            'image' => ['original' => 'data:image/png;base64,abc'],
+            'recaptcha_token' => 'test-token',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('image.cropped');
+    }
+
+    public function test_store_requires_recaptcha_token(): void {
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'text' => '<p>Hello world</p>',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('recaptcha_token');
+    }
+
+    public function test_store_rejects_a_failed_recaptcha_verification(): void {
+        $this->fakeRecaptcha(success: false);
+
+        $response = $this->postJson('/api/comments', [
+            'user_name' => 'JohnDoe123',
+            'email' => 'john@example.com',
+            'text' => '<p>Hello world</p>',
+            'recaptcha_token' => 'test-token',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('recaptcha_token');
     }
 
     public function test_store_rejects_non_integer_parent_id_and_replied_to_comment_id(): void {

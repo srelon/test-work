@@ -8,17 +8,20 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use PhpAmqpLib\Exception\AMQPIOException;
 use Tests\Feature\Concerns\FakesRabbitMQService;
+use Tests\Feature\Concerns\FakesRecaptcha;
 use Tests\TestCase;
 
 class CommentQueueTest extends TestCase
 {
     use RefreshDatabase;
     use FakesRabbitMQService;
+    use FakesRecaptcha;
 
     protected function setUp(): void {
         parent::setUp();
 
         $this->fakeRabbitMQService();
+        $this->fakeRecaptcha();
     }
 
     public function test_store_publishes_to_rabbitmq_and_returns_202(): void {
@@ -29,6 +32,7 @@ class CommentQueueTest extends TestCase
             'email' => 'jane@example.com',
             'home_page' => 'https://example.com',
             'text' => '<p>Hello world</p>',
+            'recaptcha_token' => 'test-token',
         ]);
 
         $response->assertStatus(202);
@@ -52,6 +56,7 @@ class CommentQueueTest extends TestCase
             'user_name' => 'JaneDoe',
             'email' => 'jane@example.com',
             'text' => '<p>Hello world</p>',
+            'recaptcha_token' => 'test-token',
         ]);
 
         $response->assertStatus(202);
@@ -66,6 +71,7 @@ class CommentQueueTest extends TestCase
             'user_name' => 'XSSTester',
             'email' => 'xss@example.com',
             'text' => '<p>Hello <script>alert(1)</script>world</p>',
+            'recaptcha_token' => 'test-token',
         ]);
 
         $this->assertFalse(str_contains($fake->published['comments_create'][0]['text'], '<script'));

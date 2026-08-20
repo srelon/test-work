@@ -7,6 +7,7 @@
 - **Queue** — RabbitMQ (raw `php-amqplib`, not a Laravel queue driver), with a Redis-backed Laravel queue as the fallback/retry path when RabbitMQ can't be used directly — see `backend/CLAUDE.md` § Queue
 - **Frontend** — Vue 3 + TypeScript + Vite, Pinia, Vue Router, `vue-toastification` (global error toasts)
 - **Rate limiting** — Laravel's built-in `throttle` middleware on `POST`/`GET /api/comments`, keyed by IP
+- **Spam protection** — Google reCAPTCHA v2 Checkbox on the comment form, verified server-side — see `backend/CLAUDE.md` § reCAPTCHA
 - **Web server** — Nginx (templates in `_docker/nginx/conf.d/templates`)
 - **Prod proxy** — Caddy (auto-HTTPS, `docker-compose.prod.yml`)
 - **Infra** — Docker Compose
