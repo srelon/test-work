@@ -21,13 +21,16 @@
         <div class="flex flex-1 flex-col gap-4">
             <p v-if="is_loading_replies" class="text-sm text-neutral-400">Loading replies...</p>
 
-            <CommentItem
-                v-for="reply in comment.replies"
-                :key="reply.id"
-                :comment="reply"
-                is_reply
-                @reply-to-me="on_reply_to_me(reply)"
-            />
+            <TransitionGroup name="new-comment" tag="div" class="flex flex-col gap-4">
+                <CommentItem
+                    v-for="reply in comment.replies"
+                    :key="reply.id"
+                    :comment="reply"
+                    is_reply
+                    :is_new="reply.is_new"
+                    @reply-to-me="on_reply_to_me(reply)"
+                />
+            </TransitionGroup>
 
             <div ref="compose_wrap">
                 <CommentForm
@@ -106,3 +109,19 @@ function open() {
 
 defineExpose({ open })
 </script>
+
+<style scoped>
+.new-comment-enter-active,
+.new-comment-leave-active {
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.new-comment-enter-from {
+    opacity: 0;
+    transform: translateY(-12px);
+}
+
+.new-comment-leave-to {
+    opacity: 0;
+}
+</style>

@@ -4,17 +4,20 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\FakesRabbitMQService;
+use Tests\Feature\Concerns\FakesRecaptcha;
 use Tests\TestCase;
 
 class CommentRateLimitTest extends TestCase
 {
     use RefreshDatabase;
     use FakesRabbitMQService;
+    use FakesRecaptcha;
 
     protected function setUp(): void {
         parent::setUp();
 
         $this->fakeRabbitMQService();
+        $this->fakeRecaptcha();
     }
 
     public function test_store_is_rate_limited_after_ten_requests_per_minute(): void {
@@ -23,6 +26,7 @@ class CommentRateLimitTest extends TestCase
                 'user_name' => 'RateTest',
                 'email' => 'rate@example.com',
                 'text' => '<p>x</p>',
+                'recaptcha_token' => 'test-token',
             ])->assertStatus(202);
         }
 
@@ -30,6 +34,7 @@ class CommentRateLimitTest extends TestCase
             'user_name' => 'RateTest',
             'email' => 'rate@example.com',
             'text' => '<p>x</p>',
+            'recaptcha_token' => 'test-token',
         ]);
 
         $response->assertStatus(429);

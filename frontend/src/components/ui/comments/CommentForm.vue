@@ -31,6 +31,8 @@
 
         <ImageUpload v-if="variant === 'default'" v-model="image" />
 
+        <Recaptcha name="recaptcha_token" />
+
         <BaseButton type="submit" :loading="is_submitting" class="self-start">
             {{ is_submitting ? 'Sending...' : submit_label }}
         </BaseButton>
@@ -43,6 +45,7 @@ import { Form } from 'vee-validate'
 import { object, string } from 'yup'
 import BaseButton from '@/components/ui/base/BaseButton.vue'
 import BaseInput from '@/components/ui/base/BaseInput.vue'
+import Recaptcha from '@/components/ui/base/Recaptcha.vue'
 import RichTextEditor from '@/components/ui/base/editor/RichTextEditor.vue'
 import ImageUpload, { type CommentImage } from '@/components/ui/base/imageUpload/ImageUpload.vue'
 import { useAuthorStore } from '@/stores/author'
@@ -97,6 +100,7 @@ const schema = object({
     text: string()
         .test('has-text', 'Comment text is required', (value) => plain_text_length(value) > 0)
         .test('max-length', `Comment text may not be greater than ${MAX_TEXT_LENGTH} characters`, (value) => plain_text_length(value) <= MAX_TEXT_LENGTH),
+    recaptcha_token: string().required('Please confirm you are not a robot'),
 })
 
 interface CommentFormValues {
@@ -104,9 +108,10 @@ interface CommentFormValues {
     email: string
     home_page?: string
     text: string
+    recaptcha_token: string
 }
 
-const initial_values: CommentFormValues = {
+const initial_values: Partial<CommentFormValues> = {
     user_name: author_store.user_name,
     email: author_store.email,
     home_page: '',
@@ -127,6 +132,7 @@ function on_submit(form_values: Record<string, unknown>, { setErrors }: { setErr
         home_page: typed_values.home_page || undefined,
         text: typed_values.text,
         image: image.value,
+        recaptcha_token: typed_values.recaptcha_token,
     }).then(() => {
         author_store.user_name = typed_values.user_name
         author_store.email = typed_values.email
