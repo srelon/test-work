@@ -90,12 +90,7 @@ interface Props {
     loading?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-    comment: undefined,
-    is_reply: false,
-    is_new: false,
-    loading: false,
-})
+const { comment, is_reply = false, is_new = false, loading = false } = defineProps<Props>()
 
 const emit = defineEmits<{
     'reply-to-me': []
@@ -105,21 +100,21 @@ const { scroll_to_comment } = useCommentAnchor()
 
 const lightbox_open = ref(false)
 const replies_ref = ref<InstanceType<typeof CommentReplies> | null>(null)
-const is_flashing = ref(props.is_new)
+const is_flashing = ref(is_new)
 
 const card_classes = computed(() => {
-    if (props.is_reply) return 'comment-item--reply rounded-r-xl border-neutral-200 bg-neutral-50 p-4'
+    if (is_reply) return 'comment-item--reply rounded-r-xl border-neutral-200 bg-neutral-50 p-4'
     return 'rounded-xl border-neutral-200 bg-white p-5 shadow-sm sm:p-6'
 })
 
-const sanitized_text = computed(() => sanitize_comment_html(props.comment!.text))
+const sanitized_text = computed(() => sanitize_comment_html(comment!.text))
 
 const truncated_home_page = computed(() => {
-    const url = props.comment!.home_page ?? ''
+    const url = comment!.home_page ?? ''
     return url.length > MAX_HOME_PAGE_LENGTH ? `${url.slice(0, MAX_HOME_PAGE_LENGTH)}...` : url
 })
 
-const formatted_date = computed(() => new Date(props.comment!.created_at).toLocaleString(undefined, {
+const formatted_date = computed(() => new Date(comment!.created_at).toLocaleString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
     month: 'short',
@@ -127,12 +122,12 @@ const formatted_date = computed(() => new Date(props.comment!.created_at).toLoca
 }))
 
 onMounted(() => {
-    if (! props.is_new) return
+    if (! is_new) return
     setTimeout(() => { is_flashing.value = false }, FLASH_DURATION_MS)
 })
 
 function on_reply_click() {
-    if (props.is_reply) {
+    if (is_reply) {
         emit('reply-to-me')
         return
     }

@@ -107,4 +107,4 @@ format:
 	docker exec -it dzencode_app bash -c "cd /var/www/backend && ./vendor/bin/pint"
 
 fresh:
-	docker exec -it dzencode_app bash -c "cd /var/www/backend && php artisan migrate:fresh --seed"
+	docker exec -it dzencode_app bash -c "cd /var/www/backend && php artisan migrate:fresh --seed && php artisan cache:clear && php artisan cache:clear redis"
