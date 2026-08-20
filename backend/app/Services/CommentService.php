@@ -201,12 +201,14 @@ class CommentService
 
     protected function storeImage(?array $image): array {
         if (! $image) {
-            return ['image_original' => null, 'image_cropped' => null];
+            return ['images' => null];
         }
 
         return [
-            'image_original' => $this->saveBase64ImageFit($image['original'], 'comments', self::ORIGINAL_MAX_WIDTH, self::ORIGINAL_MAX_HEIGHT),
-            'image_cropped' => $this->saveBase64ImageCover($image['cropped'], 'comments', self::CROPPED_WIDTH, self::CROPPED_HEIGHT),
+            'images' => [
+                'original' => $this->saveBase64ImageFit($image['original'], 'comments', self::ORIGINAL_MAX_WIDTH, self::ORIGINAL_MAX_HEIGHT),
+                'cropped' => $this->saveBase64ImageCover($image['cropped'], 'comments', self::CROPPED_WIDTH, self::CROPPED_HEIGHT),
+            ],
         ];
     }
 }

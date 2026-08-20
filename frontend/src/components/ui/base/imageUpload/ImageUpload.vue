@@ -2,7 +2,7 @@
     <div class="flex flex-col gap-1.5">
         <label class="text-sm font-medium text-neutral-700">Image</label>
 
-        <input ref="file_input_ref" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="on_file_selected">
+        <input ref="file_input_ref" type="file" accept="image/png,image/jpeg,image/gif" class="hidden" @change="on_file_selected">
 
         <div v-if="!model_value" class="flex items-center gap-3">
             <BaseButton variant="outline" @click="file_input_ref?.click()">

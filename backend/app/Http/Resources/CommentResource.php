@@ -14,9 +14,9 @@ class CommentResource extends JsonResource
             'email' => $this->email,
             'home_page' => $this->home_page,
             'text' => $this->body,
-            'image' => $this->image_original ? [
-                'original' => Storage::disk('public')->url($this->image_original),
-                'cropped' => Storage::disk('public')->url($this->image_cropped),
+            'image' => $this->images ? [
+                'original' => Storage::disk('public')->url($this->images['original']),
+                'cropped' => Storage::disk('public')->url($this->images['cropped']),
             ] : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'replied_to' => $this->resource->repliedTo ? [
