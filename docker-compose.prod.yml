@@ -6,6 +6,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8443:8443"
     environment:
       - SSL_DOMAIN=${SSL_DOMAIN}
       - SITE_PORT=${SITE_PORT}
