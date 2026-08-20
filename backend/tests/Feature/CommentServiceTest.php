@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Comment;
 use App\Services\CommentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -132,6 +133,28 @@ class CommentServiceTest extends TestCase
             $this->assertSame(0, Comment::count());
             Storage::disk('public')->assertDirectoryEmpty('comments');
         }
+    }
+
+    public function test_persist_logs_a_warning_when_image_processing_fails(): void {
+        Storage::fake('public');
+        Log::spy();
+
+        $fake_image = 'data:image/png;base64,'.base64_encode('this is definitely not image data');
+
+        try {
+            app(CommentService::class)->persist([
+                'user_name' => 'Attacker',
+                'email' => 'attacker@example.com',
+                'text' => '<p>with fake image</p>',
+                'image' => ['original' => $fake_image, 'cropped' => $fake_image],
+            ]);
+        } catch (ValidationException) {
+            // expected — asserted by test_persist_rejects_non_image_data_disguised_as_an_image
+        }
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(fn (string $message) => $message === 'Comment image processing failed, comment was not persisted.');
     }
 
     protected function fakePngBytes(int $width = 2, int $height = 2): string {
