@@ -1,4 +1,4 @@
-# dzencode.loc
+# Test work
 
 A comments platform: a public, anonymous (no accounts/auth) threaded comment feed with a Laravel API backend and a Vue 3 SPA frontend. One level of nesting — top-level comments and replies to them, with an optional "replying to a specific reply" reference within a thread. New comments and replies appear on every open browser tab in real time over a WebSocket, without a page refresh.
 
