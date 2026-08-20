@@ -85,11 +85,11 @@ class CommentServiceTest extends TestCase
         ]);
 
         $comment = Comment::latest('id')->first();
-        $this->assertStringEndsWith('.png', $comment->image_original);
-        Storage::disk('public')->assertExists($comment->image_original);
-        Storage::disk('public')->assertExists($comment->image_cropped);
+        $this->assertStringEndsWith('.png', $comment->images['original']);
+        Storage::disk('public')->assertExists($comment->images['original']);
+        Storage::disk('public')->assertExists($comment->images['cropped']);
 
-        [$cropped_width, $cropped_height] = getimagesize(Storage::disk('public')->path($comment->image_cropped));
+        [$cropped_width, $cropped_height] = getimagesize(Storage::disk('public')->path($comment->images['cropped']));
         $this->assertSame(320, $cropped_width);
         $this->assertSame(240, $cropped_height);
     }
@@ -108,7 +108,7 @@ class CommentServiceTest extends TestCase
         ]);
 
         $comment = Comment::latest('id')->first();
-        [$width, $height] = getimagesize(Storage::disk('public')->path($comment->image_original));
+        [$width, $height] = getimagesize(Storage::disk('public')->path($comment->images['original']));
 
         $this->assertLessThanOrEqual(1920, $width);
         $this->assertLessThanOrEqual(1080, $height);

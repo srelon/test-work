@@ -15,8 +15,11 @@ class Comment extends Model
         'email',
         'home_page',
         'body',
-        'image_original',
-        'image_cropped',
+        'images',
+    ];
+
+    protected $casts = [
+        'images' => 'array',
     ];
 
     public function parent(): BelongsTo {

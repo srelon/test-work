@@ -1,5 +1,18 @@
 # dzencode.loc
 
+A comments platform: a public, anonymous (no accounts/auth) threaded comment feed with a Laravel API backend and a Vue 3 SPA frontend. One level of nesting — top-level comments and replies to them, with an optional "replying to a specific reply" reference within a thread. New comments and replies appear on every open browser tab in real time over a WebSocket, without a page refresh.
+
+## Features
+
+- **Threaded comments** — post a top-level comment or reply to one (one level deep); optionally address a specific earlier reply within the thread (shown as "↳ Replying to ...")
+- **Sorting & pagination** — top-level comments sorted by newest/oldest or by user name/email, paginated server-side
+- **Real-time updates** — a newly posted comment or reply shows up live in every other open tab (Laravel Reverb + Echo), with a "New comments" section and a scroll-to/flash highlight for the just-arrived item
+- **Rich text** — a small whitelist of inline formatting (bold, italic, inline code, links) in the comment editor, sanitized identically on both the client and the server before it's ever rendered
+- **Image attachment** — attach one image per comment, client-side cropped/resized before upload; the server independently re-validates and re-encodes it via GD (rejects anything that isn't a real, decodable raster image — no SVG/vector formats, no disguised payloads)
+- **Spam protection** — Google reCAPTCHA v2 Checkbox on the comment form, verified server-side; rate limiting (`throttle` middleware) on all endpoints, tighter on submission than on reading
+- **Async, resilient submission** — a new comment is queued (RabbitMQ) rather than written synchronously in the request; if RabbitMQ and/or Redis are unavailable, a circuit breaker with escalating backoff routes around them (a Laravel-queue fallback job, then direct synchronous persistence) instead of the request failing outright
+- **HTML sanitization / XSS safety** — user-submitted rich text is restricted to a strict tag whitelist, enforced independently on both sides
+
 ## Stack
 
 - **Backend** — Laravel 12 (PHP 8.3-FPM), MySQL 8.0, Redis
@@ -11,6 +24,10 @@
 - **Web server** — Nginx (templates in `_docker/nginx/conf.d/templates`)
 - **Prod proxy** — Caddy (auto-HTTPS, `docker-compose.prod.yml`)
 - **Infra** — Docker Compose
+
+## Database schema
+
+The app's own data model is a single self-referencing table, `comments` — `parent_id` (FK to `comments.id`, cascade-deletes replies with their parent) links a reply to its top-level comment, `replied_to_comment_id` (plain column, no FK — matches the reference design this project follows) optionally points at the specific reply being addressed within that same thread.
 
 ## Running (dev)
 
@@ -25,6 +42,15 @@ make up
 - Site: http://127.0.0.1:8880
 - API: http://127.0.0.1:8880/api/
 - Websocket (Reverb): ws://127.0.0.1:6001
+
+## Deployment (production)
+
+`docker-compose.prod.yml` is applied on top of the base `docker-compose.yml`, not a replacement for it — the base file stays plain-HTTP local dev. It adds one `caddy` container that reverse-proxies `:80`/`:443` to the existing `nginx` service and obtains its own Let's Encrypt certificate automatically (HTTP-01 challenge, so ports 80/443 need to be reachable from the internet).
+
+```
+# set SSL_DOMAIN in the root .env first
+make prod
+```
 
 ## Makefile commands
 

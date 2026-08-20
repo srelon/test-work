@@ -14,8 +14,7 @@ return new class extends Migration {
             $table->string('email');
             $table->string('home_page')->nullable();
             $table->text('body');
-            $table->string('image_original')->nullable();
-            $table->string('image_cropped')->nullable();
+            $table->json('images')->nullable();
             $table->timestamps();
 
             $table->index(['parent_id', 'created_at']);
