@@ -16,12 +16,14 @@ class CommentFilterRequest extends FormRequest
     public function rules(): array {
         return [
             'sort_by' => ['sometimes', Rule::in(self::SORT_KEYS)],
+            'page' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 
     public function filters(): array {
         return [
             'sort_by' => $this->input('sort_by', self::SORT_KEYS[0]),
+            'page' => $this->integer('page', 1),
         ];
     }
 }

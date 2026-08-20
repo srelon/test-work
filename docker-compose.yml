@@ -52,6 +52,7 @@ services:
     container_name: dzencode_reverb
     user: "1000:1000"
     entrypoint: ["sh", "/var/www/_docker/app/reverb-entrypoint.sh"]
+    restart: unless-stopped
     environment:
       - HISTFILE=/tmp/.bash_history
     ports:
@@ -62,11 +63,70 @@ services:
       app:
         condition: service_started
 
+  outbox:
+    build:
+      context: .
+      dockerfile: ./_docker/app/Dockerfile
+    container_name: dzencode_outbox
+    user: "1000:1000"
+    entrypoint: ["sh", "/var/www/_docker/app/outbox-entrypoint.sh"]
+    restart: unless-stopped
+    environment:
+      - HISTFILE=/tmp/.bash_history
+    volumes:
+      - ./:/var/www
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: dzencode_rabbitmq
+    hostname: dzencode_rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  queue:
+    build:
+      context: .
+      dockerfile: ./_docker/app/Dockerfile
+    container_name: dzencode_queue
+    user: "1000:1000"
+    entrypoint: ["sh", "/var/www/_docker/app/queue-entrypoint.sh"]
+    restart: unless-stopped
+    environment:
+      - HISTFILE=/tmp/.bash_history
+    volumes:
+      - ./:/var/www
+    depends_on:
+      app:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
   redis:
     image: redis:7-alpine
     container_name: dzencode_redis
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
 
   db:
     image: mysql:8.0
@@ -88,3 +148,5 @@ services:
 
 volumes:
   db_data:
+  rabbitmq_data:
+  redis_data:

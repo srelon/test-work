@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useToast } from 'vue-toastification'
 import router from '@/router'
 
 declare module 'axios' {
@@ -15,24 +16,40 @@ const api = axios.create({
     },
 })
 
+function extract_error_message(error: unknown): string | null {
+    if (axios.isAxiosError(error)) {
+        const errors = error.response?.data?.errors
+
+        if (typeof errors === 'string') {
+            return errors
+        }
+
+        if (errors && typeof errors === 'object') {
+            return null
+        }
+
+        if (error.response?.data?.message) {
+            return error.response.data.message
+        }
+
+        if (!error.response) {
+            return 'Network error. Please try again.'
+        }
+    }
+
+    return 'Something went wrong. Please try again.'
+}
+
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        const response = error.response
-
-        if (!response) {
-            console.error(error)
-            return Promise.reject(error)
-        }
-
-        if (response.status === 401) {
-            console.error('Validation errors', response.data)
-        } else if (response.status === 404) {
+        if (error.response?.status === 404) {
             router.push({ name: 'error_404' })
-        } else if (response.data?.errors) {
-            console.error('Validation errors', response.data.errors)
-        } else if (response.data?.message) {
-            console.error('Validation errors', response.data.message)
+        } else if (!error.config?.silent) {
+            const message = extract_error_message(error)
+            if (message) {
+                useToast().error(message)
+            }
         }
 
         return Promise.reject(error)

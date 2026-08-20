@@ -18,9 +18,9 @@ class CommentController extends Controller
     }
 
     public function store(CommentRequest $request) {
-        $comment = $this->commentService->create($request->validated());
+        $this->commentService->enqueue($request->validated());
 
-        return $this->respondWithJson($comment, 201);
+        return $this->respondWithJson(['status' => 'queued'], 202);
     }
 
     public function replies(Comment $comment) {

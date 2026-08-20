@@ -1,5 +1,6 @@
 <?php
 
+use App\Logging\MonthlyDailyRotatingHandler;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -66,10 +67,13 @@ return [
         ],
 
         'daily' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/laravel.log'),
+            'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
-            'days' => env('LOG_DAILY_DAYS', 14),
+            'handler' => MonthlyDailyRotatingHandler::class,
+            'handler_with' => [
+                'filename' => storage_path('logs/laravel.log'),
+                'maxFiles' => (int) env('LOG_DAILY_DAYS', 365),
+            ],
             'replace_placeholders' => true,
         ],
 

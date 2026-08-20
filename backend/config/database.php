@@ -21,6 +21,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Query Log
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, every query executed against any connection is written
+    | to the log via DB::listen() in AppServiceProvider::boot().
+    |
+    */
+
+    'query_log' => env('DB_QUERY_LOG', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |
@@ -173,7 +185,9 @@ return [
             'password' => env('REDIS_PASSWORD'),
             'port' => env('REDIS_PORT', '6379'),
             'database' => env('REDIS_CACHE_DB', '1'),
-            'max_retries' => env('REDIS_MAX_RETRIES', 3),
+            'timeout' => env('REDIS_CACHE_TIMEOUT', 1),
+            'read_write_timeout' => env('REDIS_CACHE_READ_WRITE_TIMEOUT', 1),
+            'max_retries' => env('REDIS_CACHE_MAX_RETRIES', 0),
             'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
             'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
