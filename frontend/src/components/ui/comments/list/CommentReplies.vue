@@ -19,7 +19,9 @@
         </button>
 
         <div class="flex flex-1 flex-col gap-4">
-            <p v-if="is_loading_replies" class="text-sm text-neutral-400">Loading replies...</p>
+            <template v-if="is_loading_replies">
+                <CommentItem v-for="n in comment.replies_count" :key="n" loading is_reply />
+            </template>
 
             <TransitionGroup name="new-comment" tag="div" class="flex flex-col gap-4">
                 <CommentItem

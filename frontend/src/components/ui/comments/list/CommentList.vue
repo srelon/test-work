@@ -2,7 +2,9 @@
     <div class="flex flex-col gap-6">
         <CommentSortBar />
 
-        <p v-if="loading" class="rounded-xl border border-neutral-200 bg-white p-5 text-sm text-neutral-400 shadow-sm">Loading comments...</p>
+        <template v-if="loading">
+            <CommentItem v-for="n in skeleton_count" :key="n" loading />
+        </template>
 
         <template v-else>
             <div v-if="newComments.length" id="new-comments-section" ref="new_comments_ref" class="flex flex-col gap-6">
@@ -26,13 +28,13 @@
             </div>
             <p v-else class="rounded-xl border border-neutral-200 bg-white p-5 text-sm text-neutral-400 shadow-sm">No comments yet.</p>
 
-            <BasePagination :current-page="currentPage" :last-page="lastPage" />
+            <BasePagination :current-page="currentPage" :last-page="lastPage" anchor-id="comment-sort-bar" />
         </template>
     </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import BasePagination from '@/components/ui/base/BasePagination.vue'
 import CommentSortBar from './CommentSortBar.vue'
 import CommentItem from './CommentItem.vue'
@@ -46,7 +48,11 @@ interface Props {
     lastPage: number
 }
 
+const FALLBACK_SKELETON_COUNT = 5
+
 const props = defineProps<Props>()
+
+const skeleton_count = computed(() => props.comments.length || FALLBACK_SKELETON_COUNT)
 
 const emit = defineEmits<{
     'new-comments-seen': []

@@ -64,15 +64,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useQueryPatch } from '@/composables/useQueryPatch'
+import { usePendingScrollAnchor } from '@/composables/usePendingScrollAnchor'
 
 interface Props {
     currentPage: number
     lastPage: number
+    anchorId?: string
 }
 
-const { currentPage, lastPage } = defineProps<Props>()
+const { currentPage, lastPage, anchorId } = withDefaults(defineProps<Props>(), {
+    anchorId: undefined,
+})
 
 const { patch_query } = useQueryPatch()
+const { queue_scroll } = usePendingScrollAnchor()
 
 const pages = computed(() => {
     const start = Math.max(1, currentPage - 2)
@@ -88,6 +93,6 @@ const last_visible = computed(() => pages.value[pages.value.length - 1] ?? 0)
 function change_page(page: number) {
     if (page < 1 || page > lastPage || page === currentPage) return
     patch_query({ page: page > 1 ? String(page) : undefined }, { reset_page: false })
-    document.getElementById('comments-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (anchorId) queue_scroll(anchorId)
 }
 </script>
