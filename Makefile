@@ -18,7 +18,7 @@ prod:
 	@echo ""
 
 down:
-	$(DOCKER_COMPOSE) --profile site --profile phpmyadmin down --remove-orphans
+	$(DOCKER_COMPOSE) --profile site --profile phpmyadmin --profile rabbitmq-ui down --remove-orphans
 
 bash:
 	docker exec -it dzencode_app bash
@@ -38,8 +38,17 @@ logs-db:
 logs-reverb:
 	$(DOCKER_COMPOSE) logs -f reverb
 
+logs-rabbitmq:
+	$(DOCKER_COMPOSE) logs -f rabbitmq
+
+logs-queue:
+	$(DOCKER_COMPOSE) logs -f queue
+
+logs-outbox:
+	$(DOCKER_COMPOSE) logs -f outbox
+
 logs-laravel:
-	tail -f backend/storage/logs/laravel.log
+	docker exec dzencode_app bash -c 'tail -f "/var/www/backend/storage/logs/$$(date +%Y-%m)/laravel-$$(date +%Y-%m-%d).log"'
 
 reverb-keys:
 	@NEW_ID=$$(openssl rand -hex 8); \
@@ -58,10 +67,31 @@ scheduler-logs:
 scheduler-restart:
 	$(DOCKER_COMPOSE) restart scheduler
 
+queue-logs:
+	docker logs -f dzencode_queue
+
+queue-restart:
+	$(DOCKER_COMPOSE) restart queue
+
+outbox-logs:
+	docker logs -f dzencode_outbox
+
+outbox-restart:
+	$(DOCKER_COMPOSE) restart outbox
+
+failed-jobs:
+	docker exec -it dzencode_app bash -c "cd /var/www/backend && php artisan queue:failed"
+
 pma:
 	$(DOCKER_COMPOSE) --profile phpmyadmin up -d
 	@echo ""
 	@echo "  phpMyAdmin:  http://127.0.0.1:8080"
+	@echo ""
+
+rabbitmq-ui:
+	$(DOCKER_COMPOSE) --profile rabbitmq-ui up -d
+	@echo ""
+	@echo "  RabbitMQ UI:  http://127.0.0.1:15672"
 	@echo ""
 
 site:

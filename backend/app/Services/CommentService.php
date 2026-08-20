@@ -5,15 +5,22 @@ namespace App\Services;
 use App\Events\CommentCreated;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
+use App\Services\Resilience\ReliableQueue;
+use App\Services\Resilience\ResilientCache;
 use App\Traits\SavesBase64Images;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator as ConcreteLengthAwarePaginator;
-use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class CommentService
 {
     use SavesBase64Images;
+
+    public function __construct(
+        private ResilientCache $cache,
+        private ReliableQueue $reliableQueue,
+    ) {}
 
     private const ALLOWED_TAGS = '<a><code><i><strong>';
 
@@ -31,7 +38,7 @@ class CommentService
         $sort_by = $filters['sort_by'] ?? 'newest';
         $page = $filters['page'] ?? 1;
 
-        $cached = Cache::tags(['comments_list'])->remember(
+        $cached = $this->cache->remember(
             "comments:index:{$sort_by}:{$page}",
             self::CACHE_TTL,
             function () use ($sort_by, $perPage, $page) {
@@ -49,6 +56,7 @@ class CommentService
                     'current_page' => $paginated->currentPage(),
                 ];
             },
+            ['comments_list'],
         );
 
         $this->hydrateRepliesCount($cached['data']);
@@ -57,7 +65,7 @@ class CommentService
     }
 
     public function getReplies(Comment $comment): array {
-        return Cache::remember(
+        return $this->cache->remember(
             "comments:replies:{$comment->id}",
             self::CACHE_TTL,
             fn () => $comment->replies()->oldest()->with('repliedTo')->get()
@@ -66,31 +74,43 @@ class CommentService
         );
     }
 
-    public function create(array $data): array {
+    public function enqueue(array $data): void {
+        $data['text'] = $this->sanitizeBody($data['text']);
+
+        $this->reliableQueue->send(config('rabbitmq.queues.comments_create'), $data);
+    }
+
+    public function persist(array $data): void {
         $comment = Comment::create([
             'parent_id' => $data['parent_id'] ?? null,
             'replied_to_comment_id' => $data['replied_to_comment_id'] ?? null,
             'user_name' => $data['user_name'],
             'email' => $data['email'],
             'home_page' => $data['home_page'] ?? null,
-            'body' => $this->sanitizeBody($data['text']),
+            'body' => $data['text'],
             ...$this->storeImage($data['image'] ?? null),
         ]);
 
         $comment->load('repliedTo');
 
-        CommentCreated::dispatch($comment);
-
-        if ($comment->parent_id === null) {
-            Cache::tags(['comments_list'])->flush();
-            Cache::forever($this->repliesCountKey($comment->id), 0);
-        } else {
-            $count = Comment::where('parent_id', $comment->parent_id)->count();
-            Cache::forever($this->repliesCountKey($comment->parent_id), $count);
-            Cache::forget("comments:replies:{$comment->parent_id}");
+        try {
+            if ($comment->parent_id === null) {
+                $this->cache->flushTags(['comments_list']);
+                $this->cache->forever($this->repliesCountKey($comment->id), 0);
+            } else {
+                $count = Comment::where('parent_id', $comment->parent_id)->count();
+                $this->cache->forever($this->repliesCountKey($comment->parent_id), $count);
+                $this->cache->forget("comments:replies:{$comment->parent_id}");
+            }
+        } catch (Throwable $e) {
+            report($e);
         }
 
-        return (new CommentResource($comment))->resolve();
+        try {
+            CommentCreated::dispatch($comment);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     protected function hydrateRepliesCount(array &$items): void {
@@ -100,8 +120,7 @@ class CommentService
 
         $keys = collect($items)->mapWithKeys(fn (array $item) => [$item['id'] => $this->repliesCountKey($item['id'])]);
 
-        $cachedCounts = Cache::many($keys->values()->all());
-
+        $cachedCounts = $this->cache->many($keys->values()->all());
 
         $missingIds = $keys->filter(fn (string $cache_key) => $cachedCounts[$cache_key] === null)->keys();
 
@@ -116,7 +135,7 @@ class CommentService
             $count = (int) ($cachedCounts[$keys[$item['id']]] ?? $freshCounts[$item['id']] ?? 0);
 
             if ($missingIds->contains($item['id'])) {
-                Cache::forever($keys[$item['id']], $count);
+                $this->cache->forever($keys[$item['id']], $count);
             }
 
             $item['replies_count'] = $count;
