@@ -25,6 +25,24 @@ A comments platform: a public, anonymous (no accounts/auth) threaded comment fee
 - **Prod proxy** — Caddy (auto-HTTPS, `docker-compose.prod.yml`)
 - **Infra** — Docker Compose
 
+## Libraries
+
+Framework/tooling defaults (Laravel, Vue, Vite, TypeScript, Tailwind, Pinia, Vue Router, Axios) are covered by **Stack** above — this is only what was pulled in for a specific feature.
+
+**Backend:**
+
+- `laravel/reverb` — self-hosted WebSocket broadcasting server behind the real-time updates
+- `php-amqplib/php-amqplib` — raw AMQP client for publishing to and consuming from RabbitMQ
+- `predis/predis` — Redis client, backing the cache/queue fallback path when RabbitMQ can't be used directly
+
+**Frontend:**
+
+- `laravel-echo` + `pusher-js` — subscribes to the Reverb WebSocket channel for live comment updates
+- `vee-validate` + `yup` — comment form validation
+- `@tiptap/*` — the rich-text editor behind the comment composer (bold/italic/inline code/links)
+- `vue-advanced-cropper` — client-side image cropping before upload
+- `vue-toastification` — global error toasts
+
 ## Database schema
 
 The app's own data model is a single self-referencing table, `comments` — `parent_id` (FK to `comments.id`, cascade-deletes replies with their parent) links a reply to its top-level comment, `replied_to_comment_id` (plain column, no FK — matches the reference design this project follows) optionally points at the specific reply being addressed within that same thread.
@@ -36,7 +54,7 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 docker compose up -d --build
-make up
+docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
 ```
 
 - Site: http://127.0.0.1:8880
