@@ -56,6 +56,7 @@ cp frontend/.env.example frontend/.env
 docker compose up -d --build
 docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
 ```
+`make fresh` if you need to recreate seed
 
 - Site: http://127.0.0.1:8880
 - API: http://127.0.0.1:8880/api/

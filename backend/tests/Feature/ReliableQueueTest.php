@@ -15,8 +15,8 @@ use Tests\TestCase;
 
 class ReliableQueueTest extends TestCase
 {
-    use RefreshDatabase;
     use FakesRabbitMQService;
+    use RefreshDatabase;
 
     public function test_send_publishes_and_never_touches_the_fallback_job(): void {
         Queue::fake();
@@ -31,8 +31,7 @@ class ReliableQueueTest extends TestCase
     public function test_send_falls_back_to_the_configured_job_when_publish_fails(): void {
         Queue::fake();
 
-        $this->app->instance(RabbitMQService::class, new class extends RabbitMQService
-        {
+        $this->app->instance(RabbitMQService::class, new class extends RabbitMQService {
             public function publish(string $queue, array $payload): void {
                 throw new AMQPIOException('Unable to connect to tcp://rabbitmq:5672');
             }

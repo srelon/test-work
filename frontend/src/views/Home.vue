@@ -4,7 +4,7 @@
 
         <CommentForm :key="form_key" @submitted="on_comment_submitted" />
 
-        <div id="comments-section" class="mt-10">
+        <div class="mt-10">
             <CommentList
                 :comments="comments"
                 :new-comments="new_comments"
@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import CommentForm from '@/components/ui/comments/CommentForm.vue'
 import CommentList from '@/components/ui/comments/list/CommentList.vue'
@@ -28,6 +28,7 @@ import NewCommentsButton from '@/components/ui/comments/list/NewCommentsButton.v
 import api from '@/plugins/axios'
 import echo from '@/plugins/echo'
 import { useQueryPatch } from '@/composables/useQueryPatch'
+import { usePendingScrollAnchor } from '@/composables/usePendingScrollAnchor'
 import type { Comment, Pagination } from '@/types/comment'
 import { SORT_VALUES, type SortKey } from '@/types/sort'
 
@@ -37,6 +38,7 @@ interface CommentCreatedPayload extends Comment {
 
 const route = useRoute()
 const { patch_query } = useQueryPatch()
+const { consume_scroll } = usePendingScrollAnchor()
 
 const comments = ref<Comment[]>([])
 const new_comments = ref<Comment[]>([])
@@ -82,6 +84,8 @@ function fetch_comments() {
         sanitize_page()
     }).finally(() => {
         is_loading.value = false
+        const anchor_id = consume_scroll()
+        if (anchor_id) nextTick(() => document.getElementById(anchor_id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
     })
 }
 

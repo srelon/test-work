@@ -1,7 +1,9 @@
 <?php
 
+use App\Jobs\PersistCommentDirectly;
+
 return [
     'fallback_jobs' => [
-        'comments_create' => \App\Jobs\PersistCommentDirectly::class,
+        'comments_create' => PersistCommentDirectly::class,
     ],
 ];

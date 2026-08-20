@@ -13,9 +13,9 @@ use Tests\TestCase;
 
 class CommentQueueTest extends TestCase
 {
-    use RefreshDatabase;
     use FakesRabbitMQService;
     use FakesRecaptcha;
+    use RefreshDatabase;
 
     protected function setUp(): void {
         parent::setUp();
@@ -45,8 +45,7 @@ class CommentQueueTest extends TestCase
     public function test_store_falls_back_to_a_direct_job_when_the_broker_is_unreachable(): void {
         Queue::fake();
 
-        $this->app->instance(RabbitMQService::class, new class extends RabbitMQService
-        {
+        $this->app->instance(RabbitMQService::class, new class extends RabbitMQService {
             public function publish(string $queue, array $payload): void {
                 throw new AMQPIOException('Unable to connect to tcp://rabbitmq:5672');
             }

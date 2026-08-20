@@ -7,8 +7,7 @@ use App\Services\RecaptchaService;
 trait FakesRecaptcha
 {
     protected function fakeRecaptcha(bool $success = true): void {
-        $fake = new class($success) extends RecaptchaService
-        {
+        $fake = new class($success) extends RecaptchaService {
             public function __construct(private bool $success) {}
 
             public function verify(string $token, ?string $ip = null): bool {

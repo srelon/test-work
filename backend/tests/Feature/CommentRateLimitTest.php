@@ -9,9 +9,9 @@ use Tests\TestCase;
 
 class CommentRateLimitTest extends TestCase
 {
-    use RefreshDatabase;
     use FakesRabbitMQService;
     use FakesRecaptcha;
+    use RefreshDatabase;
 
     protected function setUp(): void {
         parent::setUp();
