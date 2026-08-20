@@ -72,9 +72,7 @@ interface Props {
     anchorId?: string
 }
 
-const { currentPage, lastPage, anchorId } = withDefaults(defineProps<Props>(), {
-    anchorId: undefined,
-})
+const { currentPage, lastPage, anchorId } = defineProps<Props>()
 
 const { patch_query } = useQueryPatch()
 const { queue_scroll } = usePendingScrollAnchor()
