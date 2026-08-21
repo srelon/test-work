@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Events\CommentCreated;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
+use App\Models\Contact;
 use App\Services\Resilience\ReliableQueue;
 use App\Services\Resilience\ResilientCache;
 use App\Traits\SavesBase64Images;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator as ConcreteLengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -43,7 +45,7 @@ class CommentService
             "comments:index:{$sort_by}:{$page}",
             self::CACHE_TTL,
             function () use ($sort_by, $perPage, $page) {
-                $query = Comment::query()->whereNull('parent_id');
+                $query = Comment::query()->whereNull('parent_id')->with('contact');
 
                 $this->applySort($query, $sort_by);
 
@@ -69,7 +71,7 @@ class CommentService
         return $this->cache->remember(
             "comments:replies:{$comment->id}",
             self::CACHE_TTL,
-            fn () => $comment->replies()->oldest()->with('repliedTo')->get()
+            fn () => $comment->replies()->oldest()->with(['contact', 'repliedTo.contact'])->get()
                 ->map(fn (Comment $reply) => (new CommentResource($reply))->resolve())
                 ->all(),
         );
@@ -93,17 +95,27 @@ class CommentService
             throw $e;
         }
 
-        $comment = Comment::create([
-            'parent_id' => $data['parent_id'] ?? null,
-            'replied_to_comment_id' => $data['replied_to_comment_id'] ?? null,
-            'user_name' => $data['user_name'],
-            'email' => $data['email'],
-            'home_page' => $data['home_page'] ?? null,
-            'body' => $data['text'],
-            ...$imageColumns,
-        ]);
+        $comment = DB::transaction(function () use ($data, $imageColumns) {
+            $contact = Contact::firstOrCreate([
+                'email' => $data['email'],
+                'user_name' => $data['user_name'],
+            ]);
 
-        $comment->load('repliedTo');
+            $comment = Comment::create([
+                'parent_id' => $data['parent_id'] ?? null,
+                'replied_to_comment_id' => $data['replied_to_comment_id'] ?? null,
+                'contact_id' => $contact->id,
+                'home_page' => $data['home_page'] ?? null,
+                'body' => $data['text'],
+                ...$imageColumns,
+            ]);
+
+            $comment->setRelation('contact', $contact);
+
+            return $comment;
+        });
+
+        $comment->load('repliedTo.contact');
 
         try {
             if ($comment->parent_id === null) {
@@ -191,12 +203,18 @@ class CommentService
     protected function applySort(Builder $query, string $sortBy): void {
         match ($sortBy) {
             'oldest' => $query->orderBy('created_at'),
-            'user_name_asc' => $query->orderBy('user_name'),
-            'user_name_desc' => $query->orderByDesc('user_name'),
-            'email_asc' => $query->orderBy('email'),
-            'email_desc' => $query->orderByDesc('email'),
+            'user_name_asc' => $this->orderByContactColumn($query, 'user_name'),
+            'user_name_desc' => $this->orderByContactColumn($query, 'user_name', 'desc'),
+            'email_asc' => $this->orderByContactColumn($query, 'email'),
+            'email_desc' => $this->orderByContactColumn($query, 'email', 'desc'),
             default => $query->orderByDesc('created_at'),
         };
+    }
+
+    protected function orderByContactColumn(Builder $query, string $column, string $direction = 'asc'): void {
+        $query->select('comments.*')
+            ->join('contacts', 'contacts.id', '=', 'comments.contact_id')
+            ->orderBy("contacts.{$column}", $direction);
     }
 
     protected function storeImage(?array $image): array {

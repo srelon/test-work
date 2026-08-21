@@ -59,7 +59,7 @@ class ReliableQueueTest extends TestCase
         ]);
 
         Queue::assertNotPushed(PersistCommentDirectly::class);
-        $this->assertDatabaseHas('comments', ['user_name' => 'JaneDoe', 'email' => 'jane@example.com']);
+        $this->assertDatabaseHas('contacts', ['user_name' => 'JaneDoe', 'email' => 'jane@example.com']);
     }
 
     public function test_send_skips_the_publish_attempt_entirely_once_the_rabbitmq_circuit_is_open(): void {

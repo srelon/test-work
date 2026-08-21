@@ -45,7 +45,7 @@ Framework/tooling defaults (Laravel, Vue, Vite, TypeScript, Tailwind, Pinia, Vue
 
 ## Database schema
 
-The app's own data model is a single self-referencing table, `comments` — `parent_id` (FK to `comments.id`, cascade-deletes replies with their parent) links a reply to its top-level comment, `replied_to_comment_id` (plain column, no FK — matches the reference design this project follows) optionally points at the specific reply being addressed within that same thread.
+The app's own data model is a self-referencing `comments` table plus a `contacts` table it points at — `parent_id` (FK to `comments.id`, cascade-deletes replies with their parent) links a reply to its top-level comment, `replied_to_comment_id` (plain column, no FK — matches the reference design this project follows) optionally points at the specific reply being addressed within that same thread, and `contact_id` (FK to `contacts.id`) points at the commenter's name/email, deduplicated across comments from the same person instead of repeating them on every row.
 
 ## Running (dev)
 
