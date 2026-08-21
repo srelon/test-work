@@ -39,7 +39,7 @@ class CommentQueueTest extends TestCase
         $response->assertJsonPath('data.status', 'queued');
 
         $this->assertSame('JaneDoe', $fake->published['comments_create'][0]['user_name']);
-        $this->assertDatabaseMissing('comments', ['user_name' => 'JaneDoe']);
+        $this->assertDatabaseCount('comments', 0);
     }
 
     public function test_store_falls_back_to_a_direct_job_when_the_broker_is_unreachable(): void {
@@ -60,7 +60,7 @@ class CommentQueueTest extends TestCase
 
         $response->assertStatus(202);
         Queue::assertPushed(PersistCommentDirectly::class, fn (PersistCommentDirectly $job) => $job->data['user_name'] === 'JaneDoe');
-        $this->assertDatabaseMissing('comments', ['user_name' => 'JaneDoe']);
+        $this->assertDatabaseCount('comments', 0);
     }
 
     public function test_enqueue_sanitizes_text_before_publish(): void {

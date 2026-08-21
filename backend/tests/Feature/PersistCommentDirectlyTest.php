@@ -15,7 +15,7 @@ class PersistCommentDirectlyTest extends TestCase
         (new PersistCommentDirectly(['user_name' => 'JaneDoe', 'email' => 'jane@example.com', 'text' => '<p>hi</p>']))
             ->handle(app(CommentService::class));
 
-        $this->assertDatabaseHas('comments', ['user_name' => 'JaneDoe', 'email' => 'jane@example.com']);
+        $this->assertDatabaseHas('contacts', ['user_name' => 'JaneDoe', 'email' => 'jane@example.com']);
     }
 
     public function test_job_is_configured_to_retry_with_backoff(): void {

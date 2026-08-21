@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Comment;
+use App\Models\Contact;
 use App\Services\CommentService;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -23,16 +25,18 @@ class CommentServiceTest extends TestCase
             'text' => '<p>Hello world</p>',
         ]);
 
-        $this->assertDatabaseHas('comments', [
+        $this->assertDatabaseHas('contacts', [
             'user_name' => 'JaneDoe',
             'email' => 'jane@example.com',
+        ]);
+        $this->assertDatabaseHas('comments', [
             'home_page' => 'https://example.com',
         ]);
     }
 
     public function test_persist_creates_a_reply_with_replied_to_comment_id(): void {
-        $parent = Comment::create(['user_name' => 'Jane Doe', 'email' => 'jane@example.com', 'body' => '<p>Top level</p>']);
-        $first_reply = Comment::create(['parent_id' => $parent->id, 'user_name' => 'John Smith', 'email' => 'john@example.com', 'body' => '<p>First reply</p>']);
+        $parent = $this->createComment(['user_name' => 'Jane Doe', 'email' => 'jane@example.com', 'body' => '<p>Top level</p>']);
+        $first_reply = $this->createComment(['parent_id' => $parent->id, 'user_name' => 'John Smith', 'email' => 'john@example.com', 'body' => '<p>First reply</p>']);
 
         app(CommentService::class)->persist([
             'parent_id' => $parent->id,
@@ -42,11 +46,29 @@ class CommentServiceTest extends TestCase
             'text' => '<p>Replying to John</p>',
         ]);
 
+        $contact = Contact::where('email', 'maria@example.com')->first();
+
         $this->assertDatabaseHas('comments', [
             'parent_id' => $parent->id,
             'replied_to_comment_id' => $first_reply->id,
-            'user_name' => 'MariaLane',
+            'contact_id' => $contact?->id,
         ]);
+    }
+
+    public function test_persist_rolls_back_the_new_contact_when_comment_creation_fails(): void {
+        $this->expectException(QueryException::class);
+
+        try {
+            app(CommentService::class)->persist([
+                'parent_id' => 999999,
+                'user_name' => 'RollbackTester',
+                'email' => 'rollback@example.com',
+                'text' => '<p>should never be saved</p>',
+            ]);
+        } finally {
+            $this->assertSame(0, Contact::where('email', 'rollback@example.com')->count());
+            $this->assertSame(0, Comment::count());
+        }
     }
 
     public function test_persist_and_database_treat_sql_injection_payloads_as_literal_data(): void {
@@ -165,5 +187,16 @@ class CommentServiceTest extends TestCase
         imagedestroy($image);
 
         return $bytes;
+    }
+
+    protected function createComment(array $attributes): Comment {
+        $contact = Contact::firstOrCreate([
+            'user_name' => $attributes['user_name'],
+            'email' => $attributes['email'],
+        ]);
+
+        unset($attributes['user_name'], $attributes['email']);
+
+        return Comment::create([...$attributes, 'contact_id' => $contact->id]);
     }
 }

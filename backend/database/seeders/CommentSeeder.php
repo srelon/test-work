@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Comment;
+use App\Models\Contact;
 use Illuminate\Database\Seeder;
 
 class CommentSeeder extends Seeder
@@ -35,13 +36,20 @@ class CommentSeeder extends Seeder
         '<p>Makes sense now, thanks for explaining.</p>',
     ];
 
+    private const CONTACT_COUNT = 20;
+
     public function run(): void {
+        $contact_ids = collect(range(1, self::CONTACT_COUNT))
+            ->map(fn () => Contact::create([
+                'user_name' => fake()->name(),
+                'email' => fake()->safeEmail(),
+            ])->id);
+
         for ($i = 0; $i < 50; $i++) {
             $created_at = now()->subDays(random_int(0, 90))->subHours(random_int(0, 23));
 
             $parent = Comment::create([
-                'user_name' => fake()->name(),
-                'email' => fake()->safeEmail(),
+                'contact_id' => $contact_ids->random(),
                 'home_page' => random_int(1, 100) <= 30 ? fake()->url() : null,
                 'body' => fake()->randomElement(self::PARENT_BODIES),
             ]);
@@ -61,8 +69,7 @@ class CommentSeeder extends Seeder
                 $reply = Comment::create([
                     'parent_id' => $parent->id,
                     'replied_to_comment_id' => $replied_to?->id,
-                    'user_name' => fake()->name(),
-                    'email' => fake()->safeEmail(),
+                    'contact_id' => $contact_ids->random(),
                     'body' => fake()->randomElement(self::REPLY_BODIES),
                 ]);
 
