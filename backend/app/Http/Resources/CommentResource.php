@@ -7,11 +7,12 @@ use Illuminate\Support\Facades\Storage;
 
 class CommentResource extends JsonResource
 {
+    public const COLUMNS = ['id', 'parent_id', 'replied_to_comment_id', 'contact_id', 'home_page', 'body', 'images', 'created_at'];
+
     public function toArray($request): array {
         return [
             'id' => $this->id,
             'user_name' => $this->user_name,
-            'email' => $this->email,
             'home_page' => $this->home_page,
             'text' => $this->body,
             'image' => $this->images ? [
