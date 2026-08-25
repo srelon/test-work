@@ -45,7 +45,7 @@ class CommentService
             "comments:index:{$sort_by}:{$page}",
             self::CACHE_TTL,
             function () use ($sort_by, $perPage, $page) {
-                $query = Comment::query()->whereNull('parent_id')->with('contact');
+                $query = Comment::query()->whereNull('parent_id')->with('contact:id,user_name')->select(CommentResource::COLUMNS);
 
                 $this->applySort($query, $sort_by);
 
@@ -71,7 +71,10 @@ class CommentService
         return $this->cache->remember(
             "comments:replies:{$comment->id}",
             self::CACHE_TTL,
-            fn () => $comment->replies()->oldest()->with(['contact', 'repliedTo.contact'])->get()
+            fn () => $comment->replies()->oldest()
+                ->with(['contact:id,user_name', 'repliedTo:id,contact_id', 'repliedTo.contact:id,user_name'])
+                ->select(CommentResource::COLUMNS)
+                ->get()
                 ->map(fn (Comment $reply) => (new CommentResource($reply))->resolve())
                 ->all(),
         );
@@ -173,15 +176,48 @@ class CommentService
     }
 
     public function sanitizeBody(string $body): string {
-        $body = preg_replace('/<\/p>\s*<p(?=[\s>\/])[^>]*>/i', "\n", $body);
-        $body = preg_replace('/<\/?p(?=[\s>\/])[^>]*>/i', '', $body);
         $body = preg_replace('/<br\s*\/?>/i', "\n", $body);
 
         $stripped = strip_tags($body, self::ALLOWED_TAGS);
+        $stripped = $this->balanceTags($stripped);
         $stripped = preg_replace('/<(code|i|strong)\b[^>]*>/i', '<$1>', $stripped);
         $stripped = preg_replace_callback('/<a\b[^>]*>/i', fn ($matches) => $this->sanitizeAnchorTag($matches[0]), $stripped);
 
         return trim($stripped);
+    }
+
+    protected function balanceTags(string $body): string {
+        preg_match_all('/<(\/?)(a|code|i|strong)\b[^>]*>/i', $body, $matches, PREG_OFFSET_CAPTURE);
+
+        $tags = [];
+        $openByName = [];
+
+        foreach ($matches[0] as $index => [$full, $offset]) {
+            $name = strtolower($matches[2][$index][0]);
+            $matched = false;
+
+            if ($matches[1][$index][0] === '/') {
+                if (! empty($openByName[$name])) {
+                    $tags[array_pop($openByName[$name])]['matched'] = true;
+                    $matched = true;
+                }
+            } else {
+                $openByName[$name][] = $index;
+            }
+
+            $tags[] = ['full' => $full, 'offset' => $offset, 'matched' => $matched];
+        }
+
+        $result = '';
+        $cursor = 0;
+
+        foreach ($tags as $tag) {
+            $result .= substr($body, $cursor, $tag['offset'] - $cursor);
+            $result .= $tag['matched'] ? $tag['full'] : '';
+            $cursor = $tag['offset'] + strlen($tag['full']);
+        }
+
+        return $result.substr($body, $cursor);
     }
 
     protected function sanitizeAnchorTag(string $tag): string {
@@ -212,7 +248,7 @@ class CommentService
     }
 
     protected function orderByContactColumn(Builder $query, string $column, string $direction = 'asc'): void {
-        $query->select('comments.*')
+        $query->select(array_map(fn (string $c) => "comments.{$c}", CommentResource::COLUMNS))
             ->join('contacts', 'contacts.id', '=', 'comments.contact_id')
             ->orderBy("contacts.{$column}", $direction);
     }

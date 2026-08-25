@@ -133,6 +133,10 @@ const LinkWithTitle = Link.extend({
     },
 })
 
+function paragraphs_to_newlines(html: string): string {
+    return html.replace(/<\/p>\s*<p(?=[\s>/])[^>]*>/gi, '\n').replace(/<\/?p(?=[\s>/])[^>]*>/gi, '')
+}
+
 let skip_update = false
 
 const editor = useEditor({
@@ -193,7 +197,7 @@ const editor = useEditor({
     },
     onUpdate({ editor: instance }) {
         if (skip_update) return
-        field_value.value = instance.getHTML()
+        field_value.value = paragraphs_to_newlines(instance.getHTML())
     },
     onBlur() {
         handleBlur()
@@ -203,7 +207,7 @@ const editor = useEditor({
 watch(field_value, (val) => {
     if (!editor.value) return
     const next = val || ''
-    if (editor.value.getHTML() !== next) {
+    if (paragraphs_to_newlines(editor.value.getHTML()) !== next) {
         skip_update = true
         editor.value.commands.setContent(next, { emitUpdate: false })
         skip_update = false
